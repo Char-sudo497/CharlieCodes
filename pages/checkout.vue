@@ -1,0 +1,571 @@
+<template>
+  <div>
+    <div class="checkout-container">
+      <!-- Left Column (Cart Items) -->
+      <div class="checkout-left">
+        <h2>Checkout</h2>
+
+        <!-- Cart Items -->
+        <div v-for="item in cartItems" :key="item.id" class="cart-item">
+          <img :src="item.image || defaultImage" alt="Product Image" class="cart-item-image" />
+          <div class="cart-item-details">
+            <p><strong>{{ item.productName }}</strong></p>
+            <p class="price">Price: ₱{{ item.price.toFixed(2) }}</p>
+            <p>Quantity: {{ item.Quantity }}</p>
+            <p class="total">Total: ₱{{ (item.price * item.Quantity).toFixed(2) }}</p>
+          </div>
+        </div>
+
+        <!-- Delivery Address Section -->
+        <div class="delivery-section">
+          <h3>Delivery Address</h3>
+          <p>{{ selectedAddress ? `${selectedAddress.street}, ${selectedAddress.city}, ${selectedAddress.province},
+            ${selectedAddress.zip}` : 'No address selected' }}</p>
+          <button @click="editAddress">Add/Edit Address</button>
+        </div>
+
+        <div class="cart-details">
+          <p><strong>Arrives by:</strong> {{ estimatedDeliveryDate }}</p>
+        </div>
+
+        <!-- Payment Method -->
+        <div class="payment-section">
+          <h3>Payment</h3>
+          <p>{{ paymentMethod }}</p>
+          <button @click="editPayment">Edit Payment</button>
+        </div>
+      </div>
+
+      <!-- Right Column (Order Summary) -->
+      <div class="order-summary">
+        <h3>Order Summary</h3>
+        <div class="summary-item">
+          <p>Subtotal:</p>
+          <p>₱{{ subtotal.toFixed(2) }}</p>
+        </div>
+        <div class="summary-item">
+          <p>Estimated Tax:</p>
+          <p>₱{{ tax.toFixed(2) }}</p>
+        </div>
+        <hr />
+        <div class="total-item">
+          <p><strong>Total</strong></p>
+          <p><strong>₱{{ total.toFixed(2) }}</strong></p>
+        </div>
+        <button class="checkout-button" @click="placeOrder">Place Your Order</button>
+        <button class="back-to-cart-button" @click="goBackToCart">Back to Cart</button>
+      </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div v-if="showPaymentModal" class="payment-modal">
+      <div class="modal-content">
+        <h3>Edit Payment Method</h3>
+        <div class="payment-options">
+  <button 
+    v-for="(method, index) in ['Cash on Delivery', 'GCash', 'Pickup']"
+    :key="index"
+    :class="{'active': paymentMethod === method}"
+    @click="selectPaymentMethod(method)">
+    {{ method }}
+  </button>
+</div>
+        <button @click="usePaymentMethod">Use</button>
+        <button @click="closePaymentModal" class="close-button">Close</button>
+      </div>
+    </div>
+
+    <!-- Modal for Address Selection -->
+    <div v-if="showAddressModal" class="address-modal">
+      <div class="modal-content">
+        <h3>Select a Delivery Address</h3>
+        <div v-for="(address, index) in addresses" :key="index" class="address-item">
+          <input type="radio" :id="'address' + index" v-model="selectedAddress" :value="address" />
+          <label :for="'address' + index" class="address-label">
+            {{ address.street }}, {{ address.city }}, {{ address.province }}, {{ address.zip }}
+          </label>
+          <button @click="deleteAddress(address.id)" class="delete-button">Delete</button>
+        </div>
+
+        <!-- New Address Form -->
+        <div class="new-address">
+          <h4>Add a New Address</h4>
+          <input type="text" v-model="newAddress.street" placeholder="Street Address" class="address-input" />
+          <input type="text" v-model="newAddress.city" placeholder="City" class="address-input" />
+          <input type="text" v-model="newAddress.province" placeholder="Province" class="address-input" />
+          <input type="text" v-model="newAddress.zip" placeholder="Zip Code" class="address-input" />
+          <button @click="saveAddress" class="save-button">Save Address</button>
+        </div>
+
+        <button class="use-button" @click="useAddress">Use Selected Address</button>
+        <button class="close-button" @click="closeAddressModal">Close</button>
+      </div>
+    </div>
+
+  </div>
+</template>
+
+<script>
+import { firestore } from '~/plugins/firebase';
+import { collection, getDocs, addDoc, deleteDoc, doc, getDoc, query, where } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+
+export default {
+  data() {
+    return {
+      cartItems: [],
+      deliveryAddress: ' ',
+      paymentMethod: ' ',
+      subtotal: 0,
+      tax: 0,
+      total: 0,
+      estimatedDeliveryDate: '',
+      defaultImage: 'https://via.placeholder.com/60',
+      selectedAddress: null,
+      showAddressModal: false,
+      paymentMethod: 'Not set', // Default value for payment method
+      showPaymentModal: false,
+      newAddress: {
+        province: '', city: '', street: '', zip: ''
+      },
+      addresses: [],
+    };
+  },
+  created() {
+    this.loadPaymentMethod();
+    this.loadCartItems();
+    this.estimatedDeliveryDate = this.calculateEstimatedDeliveryDate();
+    this.loadAddresses();
+    const auth = getAuth();
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is logged in
+        this.authInitialized = true;
+      } else {
+        // User is not logged in
+        this.authInitialized = false;
+      }
+    });
+  },
+  methods: {
+    selectPaymentMethod(method) {
+    this.paymentMethod = method;
+  },
+    async loadCartItems() {
+      const items = JSON.parse(this.$route.query.items || '[]');
+      this.cartItems = items;
+      this.calculateTotals();
+    },
+    async loadPaymentMethod() {
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (user) {
+        const userId = user.uid;
+        const paymentRef = collection(firestore, 'Payments');
+        const q = query(paymentRef, where("userID", "==", userId));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          // Retrieve the payment method field from the first document (or modify based on your Firestore structure)
+          this.paymentMethod = querySnapshot.docs[0].data().method; // Assuming 'method' is the field for payment method
+        } else {
+          this.paymentMethod = 'No payment method set';
+        }
+      } else {
+        console.error("User not authenticated.");
+      }
+    },
+    calculateTotals() {
+      this.subtotal = this.cartItems.reduce((total, item) => total + (item.price * item.Quantity), 0);
+      this.tax = this.subtotal * 0.1;
+      this.total = this.subtotal + this.tax;
+    },
+    calculateEstimatedDeliveryDate() {
+      const estimatedDate = new Date();
+      estimatedDate.setDate(new Date().getDate() + 3);
+      return estimatedDate.toDateString();
+    },
+    async loadAddresses() {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (user) {
+        const userId = user.uid;
+        const addressesRef = collection(firestore, 'Address');
+        const querySnapshot = await getDocs(addressesRef);
+        this.addresses = querySnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(address => address.userID === userId); // Only show addresses for the logged-in user
+      } else {
+        console.error("User not authenticated.");
+      }
+    },
+    editAddress() {
+      this.showAddressModal = true;
+    },
+    async saveAddress() {
+      const auth = getAuth();
+      const userId = auth.currentUser.uid;
+
+      const newAddressData = {
+        userID: userId,
+        province: this.newAddress.province.trim(),
+        city: this.newAddress.city.trim(),
+        street: this.newAddress.street.trim(),
+        zip: this.newAddress.zip.trim(),
+      };
+
+      const docRef = await addDoc(collection(firestore, 'Address'), newAddressData);
+      this.selectedAddress = { id: docRef.id, ...newAddressData }; // Automatically set this as the selected address after saving
+      this.loadAddresses();
+      this.closeAddressModal();
+    },
+    async deleteAddress(addressId) {
+      await deleteDoc(doc(firestore, 'Address', addressId));
+      this.loadAddresses(); // Refresh the list after deletion
+    },
+    closeAddressModal() {
+      this.showAddressModal = false;
+      this.newAddress = { province: '', city: '', street: '', zip: '' }; // Reset form fields
+    },
+    useAddress() {
+      this.selectedAddress = this.addresses.find(address => address.id === this.selectedAddress.id);
+      this.closeAddressModal();
+    },
+    async placeOrder() {
+      if (!this.authInitialized) {
+        console.error("User authentication is not initialized.");
+        return;
+      }
+      try {
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (user) {
+          const userId = user.uid;
+          const orderData = {
+            userId: userId,
+            cartItems: this.cartItems,
+            deliveryAddress: this.selectedAddress ? `${this.selectedAddress.province}, ${this.selectedAddress.city}, ${this.selectedAddress.street}, ${this.selectedAddress.zip}` : 'No address selected',
+            paymentMethod: this.paymentMethod,
+            subtotal: this.subtotal,
+            tax: this.tax,
+            total: this.total,
+            estimatedDeliveryDate: this.estimatedDeliveryDate,
+            status: 'Pending',
+            createdAt: new Date(),
+          };
+
+          // Navigate to the Order Confirmation page, passing orderData in query params
+          this.$router.push({ name: 'orderConfirmation', query: { orderData: JSON.stringify(orderData) } });
+        } else {
+          console.error("User not authenticated.");
+        }
+      } catch (error) {
+        console.error("Error placing order:", error);
+      }
+    },
+    goBackToCart() {
+      this.$router.push({ name: 'cart' });
+    },
+    editPayment() {
+      this.showPaymentModal = true;
+    },
+    usePaymentMethod() {
+      // Logic to apply the selected payment method to the order
+      this.paymentMethod = this.paymentMethod; // Assuming you're displaying the selected method as the final one
+      this.closePaymentModal();
+    },
+    closePaymentModal() {
+      this.showPaymentModal = false;
+    },
+  },
+};
+</script>
+
+<style scoped>
+.checkout-container {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+}
+
+.checkout-left {
+  width: 65%;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.order-summary {
+  width: 30%;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 20px;
+}
+
+h2,
+h3 {
+  margin-bottom: 12px;
+  font-size: 24px;
+  color: #333;
+}
+
+.payment-options button {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  width: 100%;
+  background-color: white;
+}
+
+.payment-options button.active {
+  background-color: #ff6f00; /* Highlight color */
+  color: white;
+}
+
+.payment-options button:hover:not(.active) {
+  background-color: #f4f4f4; /* Light hover effect */
+}
+
+.payment-options button.active:hover {
+  background-color: #ff9000; /* Hover effect for selected button */
+}
+
+
+.cart-item {
+  display: flex;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.cart-item-image {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-right: 15px;
+}
+
+.cart-item-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.cart-item-details p {
+  margin: 5px 0;
+}
+
+.cart-details,
+.delivery-section,
+.payment-section {
+  margin-bottom: 30px;
+}
+
+.price {
+  font-weight: bold;
+}
+
+.total {
+  font-weight: bold;
+  color: #ff6f00;
+}
+
+button {
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+}
+
+button:hover {
+  background-color: #f4f4f4;
+}
+
+.checkout-button {
+  background-color: #ff6f00;
+  color: white;
+  font-weight: bold;
+}
+
+.checkout-button:hover {
+  background-color: #ffa900;
+}
+
+button.back-to-cart-button {
+  background-color: #f4f4f4;
+  color: #ff6f00;
+  font-weight: bold;
+}
+
+.address-modal,
+.payment-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background-color: #fff;
+  padding: 20px;
+  width: 300px;
+  border-radius: 8px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.new-address input,
+.address-item button {
+  margin-bottom: 10px;
+}
+
+.new-address input {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.close-button {
+  background-color: #f5f5f5;
+  padding: 8px;
+  margin-top: 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.close-button:hover {
+  background-color: #eaeaea;
+}
+
+.use-button {
+  background-color: #ff6f00;
+  color: white;
+  padding: 8px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.save-button {
+  padding: 8px;
+  border: none;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+}
+
+/* Modal Styling */
+.address-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.modal-content {
+  background-color: #fff;
+  padding: 30px;
+  width: 350px;
+  max-width: 90%;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  overflow-y: auto;
+}
+
+/* Address Items */
+.address-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.address-label {
+  flex: 1;
+  margin-left: 10px;
+  font-size: 14px;
+  color: #333;
+}
+
+.delete-button {
+  background-color: #ff6f00;
+  color: white;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.delete-button:hover {
+  background-color: #ffa900;
+}
+
+/* New Address Form */
+.new-address h4 {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.address-input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.save-button {
+  background-color: #007bff;
+  color: white;
+  padding: 10px;
+  width: 100%;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.save-button:hover {
+  background-color: #0056b3;
+}
+
+/* Action Buttons */
+.use-button,
+.close-button {
+  background-color: #ff6f00;
+  color: white;
+  padding: 10px;
+  width: 100%;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.use-button:hover,
+.close-button:hover {
+  background-color: #ffa900;
+}
+</style>
