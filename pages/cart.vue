@@ -128,58 +128,12 @@ export default {
     async fetchCartItems() {
       const user = auth.currentUser; // Get the current user
       if (!user) {
-        // If user is logged out, fetch cart items using anonymousID
-        if (process.client) {
-          const anonymousID = localStorage.getItem('anonymousID');
-          if (anonymousID) {
-            const cartSnapshot = await getDocs(
-              collection(firestore, 'Cart'),
-              where('anonymousID', '==', anonymousID) // Use anonymousID instead of userID
-            );
-            const productsSnapshot = await getDocs(collection(firestore, 'Products'));
-
-            const products = {};
-            productsSnapshot.docs.forEach((doc) => {
-              const data = doc.data();
-              products[doc.id] = {
-                name: data.ProductName,
-                price: Number(data.Price),
-                image: data.Image,
-                description: data.Description || '',
-              };
-            });
-
-            const groupedItems = {};
-
-            cartSnapshot.docs.forEach((doc) => {
-              const data = doc.data();
-              const productID = data.ProductID;
-
-              // Only add items if they are not confirmed orders
-              if (data.orderStatus !== 'Confirmed') {
-                if (!groupedItems[productID]) {
-                  groupedItems[productID] = {
-                    id: doc.id,
-                    productID: productID,
-                    productName: products[productID]?.name || 'Unknown Product',
-                    price: Number(products[productID]?.price) || 0,
-                    image: products[productID]?.image || null,
-                    description: products[productID]?.description || '',
-                    Quantity: data.Quantity,
-                    selected: false,
-                  };
-                } else {
-                  groupedItems[productID].Quantity += data.Quantity;
-                }
-              }
-            });
-            this.cartItems = Object.values(groupedItems);
-          }
-        }
+        // If user is not logged in, redirect to sign-in page
+        this.$router.push({ path: '/sign/signin' });
         return;
       }
 
-      // If the user is logged in, fetch the cart items from Firestore
+      // Fetch the cart items for the logged-in user
       const cartSnapshot = await getDocs(
         collection(firestore, 'Cart'),
         where('userID', '==', user.uid) // Filter by userID to get only the current user's items
@@ -251,9 +205,8 @@ export default {
 
       const user = auth.currentUser;
       if (!user) {
-        // Save the cart items in localStorage if the user is not logged in
-        localStorage.setItem('cartItems', JSON.stringify(this.cartItems));
-        this.$router.push({ path: '/sign/signin', query: { items: JSON.stringify(selectedItems) } });
+        // Redirect to sign-in if the user is not logged in
+        this.$router.push({ path: '/sign/signin' });
       } else {
         // If user is logged in, proceed to checkout
         this.$router.push({ path: '/checkout', query: { items: JSON.stringify(selectedItems) } });

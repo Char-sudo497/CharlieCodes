@@ -203,40 +203,44 @@
               </v-card>
             </v-dialog>
 
-            <!-- Saved Addresses Dialog -->
             <v-dialog v-model="showSavedAddressesDialog" max-width="800px">
-              <v-card>
-                <v-card-title>
-                  <span class="headline">Saved Addresses</span>
-                </v-card-title>
+  <v-card>
+    <v-card-title>
+      <span class="headline">Saved Addresses</span>
+    </v-card-title>
 
-                <v-card-text>
-                  <v-data-table :headers="addressTableHeaders" :items="user.savedAddresses" item-key="id"
-                    class="elevation-1">
-                    <template v-slot:items="props">
-                      <tr :key="props.item.id">
-                        <td>{{ props.item.address }}</td>
-                        <td class="text-center">
-                          <v-btn color="blue" icon @click="editAddress(props.index)">
-                            <v-icon>mdi-pencil</v-icon>
-                          </v-btn>
-                        </td>
-                        <td class="text-center">
-                          <v-btn color="red" icon @click="deleteAddress(props.index)">
-                            <v-icon>mdi-delete</v-icon>
-                          </v-btn>
-                        </td>
-                      </tr>
-                    </template>
-                  </v-data-table>
-                </v-card-text>
+    <v-card-text>
+      <!-- List of Saved Addresses -->
+      <v-list dense>
+        <v-list-item v-for="(address, index) in user.savedAddresses" :key="address.id">
+          <v-list-item-content>
+            <v-list-item-title>
+              <v-icon left color="#ffa900" style="font-size: 30px;">mdi-map-marker-outline</v-icon>
+              <span style="font-size: 14px;">{{ address.address }}</span>
+            </v-list-item-title>
+          </v-list-item-content>
 
-                <v-card-actions>
-                  <v-spacer></v-spacer>
-                  <v-btn @click="showSavedAddressesDialog = false">Close</v-btn>
-                </v-card-actions>
-              </v-card>
-            </v-dialog>
+          <v-list-item-action>
+            <!-- Edit Address Button -->
+            <v-btn color="blue" icon @click="editAddress(index)">
+              <v-icon>mdi-pencil</v-icon>
+            </v-btn>
+
+            <!-- Delete Address Button -->
+            <v-btn color="red" icon @click="deleteAddress(index)">
+              <v-icon>mdi-delete</v-icon>
+            </v-btn>
+          </v-list-item-action>
+        </v-list-item>
+      </v-list>
+    </v-card-text>
+
+    <v-card-actions>
+      <v-spacer></v-spacer>
+      <v-btn @click="showSavedAddressesDialog = false">Close</v-btn>
+    </v-card-actions>
+  </v-card>
+</v-dialog>
 
           </v-list>
         </v-card>

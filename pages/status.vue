@@ -105,11 +105,11 @@ export default {
   data() {
     return {
       headers: [
-        { text: "Order ID", value: "orderId" },
+        // { text: "Order ID", value: "orderId" },
         { text: "Product Name", value: "productName" },
         { text: "Total", value: "total" },
         { text: "Estimated Delivery", value: "estimatedDeliveryDate" },
-        { text: "Payment Method", value: "paymentMethod" },
+        // { text: "Payment Method", value: "paymentMethod" },
         { text: "Delivery Address", value: "deliveryAddress" },
         { text: "Status", value: "status" },
         { text: "Actions", value: "actions", sortable: false },

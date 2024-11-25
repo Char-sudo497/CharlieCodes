@@ -43,7 +43,7 @@
       <!-- Action Buttons -->
       <div class="action-buttons">
         <button @click="confirmOrder" class="confirm-button">Confirm Order</button>
-        <button @click="goBack" class="go-back-button">Go Back to Cart</button>
+        <button @click="goBacktoCart" class="go-back-button">Go Back to Cart</button>
       </div>
 
       <!-- QR Code Dialog -->
@@ -193,8 +193,11 @@ export default {
         console.error('Error generating QR code:', error);
       }
     },
+    goBacktoCart() {
+      this.$router.push({ name: 'orderConfirmationSuccess' });
+    },
     goBack() {
-      this.$router.push({ name: 'cart' });
+      this.$router.push({ name: 'orderConfirmationSuccess' });
     },
   },
 };

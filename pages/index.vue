@@ -62,7 +62,6 @@ import { firestore } from '~/plugins/firebase';
 import { collection, getDocs, addDoc, query, where, updateDoc } from 'firebase/firestore'; // Import query and where
 import { getAuth } from 'firebase/auth'; // Import Firebase Authentication
 
-
 export default {
   data() {
     return {
@@ -96,13 +95,13 @@ export default {
       this.$router.push({ path: '/gallery', query: { category: item.ProductType } });
     },
     async addToCart(product) {
-      const auth = getAuth(); // Initialize Firebase auth
+      const auth = getAuth();
       const user = auth.currentUser;
 
       if (!user) {
         // Redirect non-signed-in users to the sign-in page
         this.$router.push('/sign/signin');
-        return; // Exit the method
+        return;
       }
 
       try {
@@ -140,13 +139,13 @@ export default {
       this.$router.push(`/gallery`);
     },
     buyNow(product) {
-      const auth = getAuth(); // Initialize Firebase auth
+      const auth = getAuth();
       const user = auth.currentUser;
 
       if (!user) {
         // Redirect non-signed-in users to the sign-in page
         this.$router.push('/sign/signin');
-        return; // Exit the method
+        return;
       }
 
       // Add product to cart and redirect to cart page
