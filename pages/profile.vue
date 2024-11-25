@@ -11,9 +11,11 @@
               <v-icon v-else style="font-size: 80px; color: #ccc;">mdi-account-circle</v-icon>
             </v-avatar>
             <h3>{{ user.name }}</h3>
-            <v-btn color="primary" @click="$refs.fileInput.click()" text style="font-size: 12px; margin-top: 10px">Upload Avatar</v-btn>
+            <v-btn color="primary" @click="$refs.fileInput.click()" text
+              style="font-size: 12px; margin-top: 10px">Upload Profile</v-btn>
             <input type="file" ref="fileInput" @change="uploadAvatar" accept="image/*" style="display: none;" />
-            <v-btn color="error" @click="removeAvatar" text style="font-size: 12px; margin-top: -20px;">Remove Avatar</v-btn>
+            <v-btn color="error" @click="removeAvatar" text style="font-size: 12px; margin-top: -20px;">Remove
+              Profile</v-btn>
           </div>
 
           <v-divider class="my-4"></v-divider>

@@ -21,18 +21,19 @@
           <h3>Delivery Address</h3>
           <p>{{ selectedAddress ? `${selectedAddress.street}, ${selectedAddress.city}, ${selectedAddress.province},
             ${selectedAddress.zip}` : 'No address selected' }}</p>
-          <button @click="editAddress">Add/Edit Address</button>
+          <button @click="editAddress">Address Options</button>
         </div>
 
         <div class="cart-details">
           <p><strong>Arrives by:</strong> {{ estimatedDeliveryDate }}</p>
         </div>
 
-        <!-- Payment Method -->
+        <!-- Payment Section -->
         <div class="payment-section">
           <h3>Payment</h3>
-          <p>{{ paymentMethod }}</p>
-          <button @click="editPayment">Edit Payment</button>
+          <p v-if="selectedPaymentMethod">{{ selectedPaymentMethod.method }}</p>
+          <p v-else>No Payment Method Selected</p>
+          <button @click="showPaymentModal = true">Payment Options</button>
         </div>
       </div>
 
@@ -44,7 +45,7 @@
           <p>₱{{ subtotal.toFixed(2) }}</p>
         </div>
         <div class="summary-item">
-          <p>Estimated Tax:</p>
+          <p>Shipping Fee:</p>
           <p>₱{{ tax.toFixed(2) }}</p>
         </div>
         <hr />
@@ -57,24 +58,6 @@
       </div>
     </div>
 
-    <!-- Payment Modal -->
-    <div v-if="showPaymentModal" class="payment-modal">
-      <div class="modal-content">
-        <h3>Edit Payment Method</h3>
-        <div class="payment-options">
-  <button 
-    v-for="(method, index) in ['Cash on Delivery', 'GCash', 'Pickup']"
-    :key="index"
-    :class="{'active': paymentMethod === method}"
-    @click="selectPaymentMethod(method)">
-    {{ method }}
-  </button>
-</div>
-        <button @click="usePaymentMethod">Use</button>
-        <button @click="closePaymentModal" class="close-button">Close</button>
-      </div>
-    </div>
-
     <!-- Modal for Address Selection -->
     <div v-if="showAddressModal" class="address-modal">
       <div class="modal-content">
@@ -84,7 +67,14 @@
           <label :for="'address' + index" class="address-label">
             {{ address.street }}, {{ address.city }}, {{ address.province }}, {{ address.zip }}
           </label>
-          <button @click="deleteAddress(address.id)" class="delete-button">Delete</button>
+          <button class="set-default-button" @click="setDefaultAddress(address.id)"
+            :disabled="address.id === defaultAddress?.id">
+            {{ address.id === defaultAddress?.id ? "Default" : "Set as Default" }}
+          </button>
+          <button v-if="address.id === defaultAddress?.id" class="remove-default-button"
+            @click="unsetDefaultAddress(address.id)">
+            Remove Default
+          </button>
         </div>
 
         <!-- New Address Form -->
@@ -97,8 +87,25 @@
           <button @click="saveAddress" class="save-button">Save Address</button>
         </div>
 
-        <button class="use-button" @click="useAddress">Use Selected Address</button>
+        <!-- Action Buttons -->
+        <button class="use-button" @click="useAddress">Use Address</button>
+        <!-- Move the delete button below the use address button -->
+        <button v-if="selectedAddress" @click="deleteAddress(selectedAddress.id)" class="delete-button">Delete</button>
         <button class="close-button" @click="closeAddressModal">Close</button>
+      </div>
+    </div>
+
+    <!-- Modal for Payment Options -->
+    <div v-if="showPaymentModal" class="payment-modal">
+      <div class="modal-content">
+        <h3>Payment Methods</h3>
+        <div v-for="method in paymentMethods" :key="method.id" class="payment-item">
+          <input type="radio" :id="'method' + method.id" v-model="selectedPaymentMethod" :value="method"
+            class="payment-checkbox" />
+          <label :for="'method' + method.id">{{ method.method }}</label>
+        </div>
+        <button @click="usePaymentMethod" class="use-button">Use</button>
+        <button @click="closePaymentModal" class="close-button">Close</button>
       </div>
     </div>
 
@@ -107,7 +114,7 @@
 
 <script>
 import { firestore } from '~/plugins/firebase';
-import { collection, getDocs, addDoc, deleteDoc, doc, getDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, deleteDoc, doc, query, where, updateDoc } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 export default {
@@ -115,7 +122,6 @@ export default {
     return {
       cartItems: [],
       deliveryAddress: ' ',
-      paymentMethod: ' ',
       subtotal: 0,
       tax: 0,
       total: 0,
@@ -123,58 +129,36 @@ export default {
       defaultImage: 'https://via.placeholder.com/60',
       selectedAddress: null,
       showAddressModal: false,
-      paymentMethod: 'Not set', // Default value for payment method
-      showPaymentModal: false,
       newAddress: {
         province: '', city: '', street: '', zip: ''
       },
+      defaultAddress: null,
       addresses: [],
+      selectedPaymentMethod: null,  // Track the selected payment method
+      showPaymentModal: false, // Track whether the payment modal is open
+      paymentMethods: [], // Store available payment methods
+      authInitialized: false, // Track user authentication state
     };
   },
   created() {
-    this.loadPaymentMethod();
     this.loadCartItems();
     this.estimatedDeliveryDate = this.calculateEstimatedDeliveryDate();
     this.loadAddresses();
+    this.loadPaymentMethods();
     const auth = getAuth();
     onAuthStateChanged(auth, (user) => {
       if (user) {
-        // User is logged in
         this.authInitialized = true;
       } else {
-        // User is not logged in
         this.authInitialized = false;
       }
     });
   },
   methods: {
-    selectPaymentMethod(method) {
-    this.paymentMethod = method;
-  },
     async loadCartItems() {
       const items = JSON.parse(this.$route.query.items || '[]');
       this.cartItems = items;
       this.calculateTotals();
-    },
-    async loadPaymentMethod() {
-      const auth = getAuth();
-      const user = auth.currentUser;
-
-      if (user) {
-        const userId = user.uid;
-        const paymentRef = collection(firestore, 'Payments');
-        const q = query(paymentRef, where("userID", "==", userId));
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          // Retrieve the payment method field from the first document (or modify based on your Firestore structure)
-          this.paymentMethod = querySnapshot.docs[0].data().method; // Assuming 'method' is the field for payment method
-        } else {
-          this.paymentMethod = 'No payment method set';
-        }
-      } else {
-        console.error("User not authenticated.");
-      }
     },
     calculateTotals() {
       this.subtotal = this.cartItems.reduce((total, item) => total + (item.price * item.Quantity), 0);
@@ -195,10 +179,74 @@ export default {
         const querySnapshot = await getDocs(addressesRef);
         this.addresses = querySnapshot.docs
           .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(address => address.userID === userId); // Only show addresses for the logged-in user
+          .filter(address => address.userID === userId);
+
+        // Check for the default address
+        this.defaultAddress = this.addresses.find(address => address.isDefault);
+        if (this.defaultAddress) {
+          this.selectedAddress = this.defaultAddress;
+        }
       } else {
         console.error("User not authenticated.");
       }
+    },
+    async setDefaultAddress(addressId) {
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (user) {
+        const userId = user.uid;
+
+        // Unset current default address if it exists
+        if (this.defaultAddress) {
+          const currentDefaultRef = doc(firestore, 'Address', this.defaultAddress.id);
+          await updateDoc(currentDefaultRef, { isDefault: false });
+        }
+
+        // Set the selected address as default
+        const newDefaultRef = doc(firestore, 'Address', addressId);
+        await updateDoc(newDefaultRef, { isDefault: true });
+
+        // Reload addresses to reflect changes
+        this.loadAddresses();
+      } else {
+        console.error("User not authenticated.");
+      }
+    },
+    async unsetDefaultAddress(addressId) {
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (user && this.defaultAddress?.id === addressId) {
+        try {
+          const addressRef = doc(firestore, 'Address', addressId);
+          await updateDoc(addressRef, { isDefault: false });
+          this.defaultAddress = null; // Clear the current default address
+          this.selectedAddress = null; // Reset the selected address if needed
+          this.loadAddresses(); // Refresh the address list
+        } catch (error) {
+          console.error('Error unsetting default address:', error);
+        }
+      }
+    },
+    // Load all payment methods from Firestore, without filtering by user
+    async loadPaymentMethods() {
+      const paymentRef = collection(firestore, 'Payments');
+      const querySnapshot = await getDocs(paymentRef);
+      this.paymentMethods = querySnapshot.docs.map(doc => doc.data());
+    },
+
+    // Use the selected payment method globally
+    usePaymentMethod() {
+      if (this.selectedPaymentMethod) {
+        this.closePaymentModal(); // Close the modal after selection
+      } else {
+        alert('Please select a payment method first.');
+      }
+    },
+
+    closePaymentModal() {
+      this.showPaymentModal = false;
     },
     editAddress() {
       this.showAddressModal = true;
@@ -213,10 +261,11 @@ export default {
         city: this.newAddress.city.trim(),
         street: this.newAddress.street.trim(),
         zip: this.newAddress.zip.trim(),
+        isDefault: false, // New addresses are not default by default
       };
 
       const docRef = await addDoc(collection(firestore, 'Address'), newAddressData);
-      this.selectedAddress = { id: docRef.id, ...newAddressData }; // Automatically set this as the selected address after saving
+      this.selectedAddress = { id: docRef.id, ...newAddressData };
       this.loadAddresses();
       this.closeAddressModal();
     },
@@ -237,6 +286,17 @@ export default {
         console.error("User authentication is not initialized.");
         return;
       }
+
+      if (!this.selectedAddress) {
+        alert('Please select a delivery address before placing your order.');
+        return; // Stop execution if no address is selected
+      }
+
+      if (!this.selectedPaymentMethod) {
+        alert('Please select a payment method before placing your order.');
+        return; // Stop execution if no payment method is selected
+      }
+
       try {
         const auth = getAuth();
         const user = auth.currentUser;
@@ -245,11 +305,11 @@ export default {
           const orderData = {
             userId: userId,
             cartItems: this.cartItems,
-            deliveryAddress: this.selectedAddress ? `${this.selectedAddress.province}, ${this.selectedAddress.city}, ${this.selectedAddress.street}, ${this.selectedAddress.zip}` : 'No address selected',
-            paymentMethod: this.paymentMethod,
+            deliveryAddress: `${this.selectedAddress.province}, ${this.selectedAddress.city}, ${this.selectedAddress.street}, ${this.selectedAddress.zip}`,
             subtotal: this.subtotal,
             tax: this.tax,
             total: this.total,
+            paymentMethod: this.selectedPaymentMethod.method, // Include the payment method in the order data
             estimatedDeliveryDate: this.estimatedDeliveryDate,
             status: 'Pending',
             createdAt: new Date(),
@@ -267,22 +327,196 @@ export default {
     goBackToCart() {
       this.$router.push({ name: 'cart' });
     },
-    editPayment() {
-      this.showPaymentModal = true;
-    },
-    usePaymentMethod() {
-      // Logic to apply the selected payment method to the order
-      this.paymentMethod = this.paymentMethod; // Assuming you're displaying the selected method as the final one
-      this.closePaymentModal();
-    },
-    closePaymentModal() {
-      this.showPaymentModal = false;
-    },
   },
 };
 </script>
 
 <style scoped>
+.checkout-container {
+  display: flex;
+  flex-wrap: wrap;
+  /* Allow wrapping for small screens */
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+}
+
+.checkout-left,
+.order-summary {
+  flex: 1 1 100%;
+  /* Full width by default */
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.order-summary {
+  margin-top: 20px;
+  /* Add spacing between sections on small screens */
+}
+
+.cart-item {
+  display: flex;
+  flex-wrap: wrap;
+  /* Wrap content for smaller screens */
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.cart-item-image {
+  width: 80px;
+  /* Smaller size for small screens */
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-right: 15px;
+}
+
+.cart-item-details {
+  flex: 1;
+  /* Allow flexible width */
+}
+
+.cart-details,
+.delivery-section,
+.payment-section {
+  margin-bottom: 20px;
+}
+
+h2,
+h3 {
+  font-size: 20px;
+  /* Scaled font size */
+  margin-bottom: 10px;
+  color: #333;
+}
+
+button {
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+}
+
+button:hover {
+  background-color: #f4f4f4;
+}
+
+.checkout-button {
+  background-color: #ff6f00;
+  color: white;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.checkout-button:hover {
+  background-color: #ffa900;
+}
+
+button.back-to-cart-button {
+  background-color: #f4f4f4;
+  color: #ff6f00;
+  font-weight: bold;
+}
+
+/* Modal Styling */
+.address-modal,
+.payment-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background-color: #fff;
+  padding: 20px;
+  width: 90%;
+  /* Scale modal for small screens */
+  max-width: 400px;
+  border-radius: 8px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+}
+
+/* Media Queries for Responsive Design */
+@media (min-width: 768px) {
+  .checkout-container {
+    flex-wrap: nowrap;
+    /* Prevent wrapping on larger screens */
+  }
+
+  .checkout-left {
+    flex: 0 0 65%;
+    /* Larger width for left column */
+  }
+
+  .order-summary {
+    flex: 0 0 30%;
+    /* Larger width for summary */
+    margin-top: 0;
+    /* Remove extra margin */
+  }
+
+  .cart-item-image {
+    width: 120px;
+    /* Larger image size */
+    height: 120px;
+  }
+
+  h2,
+  h3 {
+    font-size: 24px;
+    /* Increase font size for larger screens */
+  }
+}
+
+@media (min-width: 1024px) {
+  .modal-content {
+    width: 400px;
+    /* Fixed width for large screens */
+  }
+}
+
+.remove-default-button {
+  margin-left: 10px;
+  background-color: #ff0000;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.remove-default-button:hover {
+  background-color: #cc0000;
+}
+
+.set-default-button {
+  margin-left: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.set-default-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
 .checkout-container {
   display: flex;
   justify-content: space-between;
@@ -329,18 +563,20 @@ h3 {
 }
 
 .payment-options button.active {
-  background-color: #ff6f00; /* Highlight color */
+  background-color: #ff6f00;
+  /* Highlight color */
   color: white;
 }
 
 .payment-options button:hover:not(.active) {
-  background-color: #f4f4f4; /* Light hover effect */
+  background-color: #f4f4f4;
+  /* Light hover effect */
 }
 
 .payment-options button.active:hover {
-  background-color: #ff9000; /* Hover effect for selected button */
+  background-color: #ff9000;
+  /* Hover effect for selected button */
 }
-
 
 .cart-item {
   display: flex;
@@ -393,6 +629,7 @@ button:hover {
 }
 
 .checkout-button {
+  margin-bottom: 10px;
   background-color: #ff6f00;
   color: white;
   font-weight: bold;
@@ -511,6 +748,7 @@ button.back-to-cart-button {
 }
 
 .delete-button {
+  margin-top: 10px;
   background-color: #ff6f00;
   color: white;
   font-size: 12px;

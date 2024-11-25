@@ -34,7 +34,7 @@
         <div class="pricing-details">
           <div>
             <p><strong>Subtotal:</strong> ₱{{ orderData.subtotal.toFixed(2) }}</p>
-            <p><strong>Tax:</strong> ₱{{ orderData.tax.toFixed(2) }}</p>
+            <p><strong>Shipping Fee:</strong> ₱{{ orderData.tax.toFixed(2) }}</p>
             <p><strong>Total:</strong> ₱{{ orderData.total.toFixed(2) }}</p>
           </div>
         </div>
@@ -42,8 +42,8 @@
 
       <!-- Action Buttons -->
       <div class="action-buttons">
-        <button @click="openQrCodeDialog" class="confirm-button">Confirm Order</button>
-        <button @click="goBack" class="go-back-button">Go Back</button>
+        <button @click="confirmOrder" class="confirm-button">Confirm Order</button>
+        <button @click="goBack" class="go-back-button">Go Back to Cart</button>
       </div>
 
       <!-- QR Code Dialog -->
@@ -59,8 +59,7 @@
             </div>
           </v-card-text>
           <v-card-actions>
-            <v-btn @click="confirmOrder" color="green" style="color: white;">Confirm Order</v-btn>
-            <!-- <v-btn @click="closeQrCodeDialog" color="red">Cancel</v-btn> -->
+            <v-btn @click="goBack" color="green" style="color: white;">Done</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
@@ -80,6 +79,7 @@ export default {
     return {
       orderData: null,
       qrCodeDialog: false, // Dialog visibility for QR code
+      orderId: null,       // Store the orderId after order creation
     };
   },
   created() {
@@ -107,67 +107,6 @@ export default {
         console.error('Error fetching product images:', error);
       }
     },
-    openQrCodeDialog() {
-      this.qrCodeDialog = true;
-      this.$nextTick(() => {
-        this.generateQrCode();
-      });
-    },
-    closeQrCodeDialog() {
-      this.qrCodeDialog = false;
-    },
-    async generateQrCode() {
-  try {
-    // Fetch user details from Users collection (only need to fetch name)
-    const usersRef = collection(firestore, 'Users');
-    const q = query(usersRef, where('__name__', '==', this.orderData.userId));
-    const querySnapshot = await getDocs(q);
-
-    let userName = 'Unknown User';  // Default name if not found
-    querySnapshot.forEach((doc) => {
-      if (doc.exists()) {
-        const userDetails = doc.data();
-        userName = `${userDetails.firstName || ''} ${userDetails.lastName || ''}`.trim() || 'Unknown User';
-      }
-    });
-
-    // Create simplified QR code data
-    const orderDetails = {
-      orderId: this.orderData.orderId,
-      userId: this.orderData.userId,
-      userName: userName,
-      items: this.orderData.cartItems.map(item => ({
-        productName: item.productName,
-        quantity: item.Quantity,
-        price: item.price.toFixed(2),  // Price should be a string to keep it consistent
-      })),
-      total: this.orderData.total.toFixed(2),  // Convert total to string
-      deliveryAddress: this.orderData.deliveryAddress,
-      estimatedDeliveryDate: this.orderData.estimatedDeliveryDate,
-      paymentMethod: this.orderData.paymentMethod,
-    };
-
-    // Generate QR code data string
-    const qrData = JSON.stringify(orderDetails);
-    const canvas = this.$refs.qrCanvas;
-
-    if (canvas) {
-      // Clear previous QR code
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Generate new QR code
-      await QRCode.toCanvas(canvas, qrData, {
-        width: 200,  // QR code width
-        margin: 4,   // QR code margin
-      });
-    } else {
-      console.error('Canvas element is not available.');
-    }
-  } catch (error) {
-    console.error('Error generating QR code:', error);
-  }
-},
     async confirmOrder() {
       try {
         if (this.orderData) {
@@ -175,7 +114,7 @@ export default {
           const user = auth.currentUser;
           if (user) {
             const orderRef = collection(firestore, 'Orders');
-            await addDoc(orderRef, {
+            const orderDocRef = await addDoc(orderRef, {
               userId: this.orderData.userId,
               cartItems: this.orderData.cartItems,
               deliveryAddress: this.orderData.deliveryAddress,
@@ -187,7 +126,10 @@ export default {
               status: 'Pending',
               createdAt: new Date(),
             });
-            this.$router.push({ name: 'orderConfirmationSuccess' });
+
+            this.orderId = orderDocRef.id; // Capture the generated orderId
+            this.orderData.orderId = this.orderId; // Add orderId to the order data
+            this.openQrCodeDialog(); // Open QR code dialog after order is placed
           } else {
             console.error('User not authenticated.');
           }
@@ -196,8 +138,63 @@ export default {
         console.error('Error confirming order:', error);
       }
     },
+    openQrCodeDialog() {
+      this.qrCodeDialog = true;
+      this.$nextTick(() => {
+        this.generateQrCode();
+      });
+    },
+    closeQrCodeDialog() {
+      this.qrCodeDialog = false;
+    },
+    async generateQrCode() {
+      try {
+        // Fetch user details from Users collection (only need to fetch name)
+        const usersRef = collection(firestore, 'Users');
+        const q = query(usersRef, where('__name__', '==', this.orderData.userId));
+        const querySnapshot = await getDocs(q);
+
+        let userName = 'Unknown User';  // Default name if not found
+        querySnapshot.forEach((doc) => {
+          if (doc.exists()) {
+            const userDetails = doc.data();
+            userName = `${userDetails.firstName || ''} ${userDetails.lastName || ''}`.trim() || 'Unknown User';
+          }
+        });
+
+        // Create simplified QR code data
+        const orderDetails = {
+          orderId: this.orderData.orderId, // Include orderId
+          items: this.orderData.cartItems.map(item => ({
+            productName: item.productName, // Include productName
+            quantity: item.Quantity, // Include quantity
+            total: this.orderData.total,
+          }))
+        };
+
+        // Generate QR code data string
+        const qrData = JSON.stringify(orderDetails);
+        const canvas = this.$refs.qrCanvas;
+
+        if (canvas) {
+          // Clear previous QR code
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          // Generate new QR code
+          await QRCode.toCanvas(canvas, qrData, {
+            width: 200,  // QR code width
+            margin: 4,   // QR code margin
+          });
+        } else {
+          console.error('Canvas element is not available.');
+        }
+      } catch (error) {
+        console.error('Error generating QR code:', error);
+      }
+    },
     goBack() {
-      this.$router.push({ name: 'checkout' });
+      this.$router.push({ name: 'cart' });
     },
   },
 };

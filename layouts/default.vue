@@ -1,29 +1,34 @@
 <template>
   <v-app dark>
-    <v-app-bar v-if="showNavbar" app fixed elevate height="80vh">
-      <v-btn icon @click="drawer = !drawer" aria-label="Navigation Menu" v-if="showMenuIcon">
+    <v-app-bar v-if="showNavbar" app fixed elevate height="80px">
+      <!-- Menu Icon for Small Screens -->
+      <v-btn icon @click="drawer = !drawer" aria-label="Navigation Menu" v-if="$vuetify.breakpoint.xsOnly">
         <v-icon>mdi-menu</v-icon>
       </v-btn>
 
+      <!-- Logo for Small Screens -->
       <v-toolbar-title class="logo-title">
-        <img src="@/assets/logo 3.png" alt="Victory One Logo" style="height: 80px;" />
+        <img src="@/assets/logo 3.png" alt="Victory One Logo" />
       </v-toolbar-title>
 
+      <!-- Spacer for Layout -->
       <v-spacer></v-spacer>
 
-      <v-btn text :class="{ 'clicked': isHomeActive }" @click="goHome">
+      <!-- Navigation Buttons for Larger Screens -->
+      <v-btn text :class="{ 'clicked': isHomeActive }" @click="goHome" v-if="!$vuetify.breakpoint.xsOnly">
         HOME
       </v-btn>
 
-      <v-btn text :class="{ 'clicked': isAboutUsActive }" to="/aboutus">
+      <v-btn text :class="{ 'clicked': isAboutUsActive }" to="/aboutus" v-if="!$vuetify.breakpoint.xsOnly">
         ABOUT US
       </v-btn>
 
-      <v-btn text :class="{ 'clicked': isContactUsActive }" to="/contactus">
+      <v-btn text :class="{ 'clicked': isContactUsActive }" to="/contactus" v-if="!$vuetify.breakpoint.xsOnly">
         CONTACT US
       </v-btn>
 
-      <v-menu offset-y>
+      <!-- Categories Menu for Larger Screens -->
+      <v-menu offset-y v-if="!$vuetify.breakpoint.xsOnly">
         <template #activator="{ on, attrs }">
           <v-btn text v-bind="attrs" v-on="on">
             CATEGORIES <v-icon right>mdi-chevron-down</v-icon>
@@ -40,13 +45,14 @@
 
       <v-spacer></v-spacer>
 
-      <!-- Add to Cart Icon with Badge -->
+      <!-- Cart Icon with Badge -->
       <v-btn icon to="/cart">
         <v-icon>mdi-cart-outline</v-icon>
         <v-badge v-if="cartItemCount > 0" color="red" :content="cartItemCount" overlap>
         </v-badge>
       </v-btn>
 
+      <!-- Profile Menu -->
       <v-menu offset-y>
         <template #activator="{ on, attrs }">
           <v-avatar size="32" v-bind="attrs" v-on="on">
@@ -61,27 +67,35 @@
             <v-list-item-title>Profile</v-list-item-title>
           </v-list-item>
 
-          <v-list-item @click="openLogoutConfirmation" :disabled="!isUserLoggedIn"> <!-- Disable if not logged in -->
+          <v-list-item @click="openLogoutConfirmation" :disabled="!isUserLoggedIn">
             <v-list-item-title>Logout</v-list-item-title>
           </v-list-item>
         </v-list>
       </v-menu>
     </v-app-bar>
 
-    <!-- Confirmation Dialog for Logout -->
-    <v-dialog v-model="logoutDialog" max-width="400">
-      <v-card>
-        <v-card-title class="headline">Confirm Logout</v-card-title>
-        <v-card-text>
-          Are you sure you want to log out?
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="primary" @click="logout">Yes</v-btn> <!-- Calls logout method -->
-          <v-btn color="grey" @click="logoutDialog = false">No</v-btn> <!-- Closes dialog -->
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <!-- Drawer for Smaller Screens -->
+<v-navigation-drawer v-model="drawer" app temporary style="background-color: #333;">
+  <v-list>
+    <v-list-item @click="goHome">
+      <v-icon class="white-icon mr-2">mdi-home</v-icon>
+      <v-list-item-title class="white-text">HOME</v-list-item-title>
+    </v-list-item>
+    <v-list-item @click="goToPage('aboutus')">
+      <v-icon class="white-icon mr-2">mdi-information-outline</v-icon>
+      <v-list-item-title class="white-text">ABOUT US</v-list-item-title>
+    </v-list-item>
+    <v-list-item @click="goToPage('contactus')">
+      <v-icon class="white-icon mr-2">mdi-phone</v-icon>
+      <v-list-item-title class="white-text">CONTACT US</v-list-item-title>
+    </v-list-item>
+    <v-subheader class="white-text">CATEGORIES</v-subheader>
+    <v-list-item v-for="(category, index) in categories" :key="index" @click="selectCategory(category)">
+      <v-icon class="white-icon mr-2">mdi-tag-outline</v-icon>
+      <v-list-item-title class="white-text">{{ category }}</v-list-item-title>
+    </v-list-item>
+  </v-list>
+</v-navigation-drawer>
 
     <!-- Fullscreen Carousel -->
     <v-carousel v-if="showCarousel" height="50vh" hide-delimiter-background :cycle="true">
@@ -175,7 +189,7 @@ export default {
   name: 'DefaultLayout',
   data() {
     return {
-      categories: [],
+      categories: ['Category 1', 'Category 2', 'Category 3'],
       drawer: false,
       logoutDialog: false,
       images: [
@@ -214,6 +228,12 @@ export default {
     },
   },
   methods: {
+    goToPage(page) {
+      this.$router.push(`/${page}`);
+    },
+    openCategories() {
+      // Show categories or open a menu
+    },
     goHome() {
       this.$router.push('/');
     },
@@ -287,6 +307,47 @@ export default {
 </script>
 
 <style scoped>
+.v-navigation-drawer {
+  color: white;
+  /* Text color inside drawer */
+}
+
+.v-list-item-title {
+  color: white !important;
+  /* Ensure titles are visible */
+}
+
+.white-icon {
+  color: white !important;
+  /* Icons in drawer */
+}
+
+.v-subheader {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.logo-title img {
+  height: 80px;
+  /* Default size */
+}
+
+@media (max-width: 600px) {
+  .logo-title img {
+    height: 50px;
+    /* Adjust for mobile */
+  }
+}
+
+.category-button {
+  width: 100%;
+}
+
+.v-avatar {
+  width: 40px;
+  height: 40px;
+}
+
 .footer {
   background-color: #333;
   color: #fff;

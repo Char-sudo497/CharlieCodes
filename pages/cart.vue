@@ -81,8 +81,10 @@
             <div class="summary-shipping">
               <p v-if="subtotal >= 1000">Congrats, you're eligible for Free Shipping!</p>
             </div>
-            <v-btn @click="proceedToCheckout" block class="checkout-btn"
-              style="color: white; background-color: #ffa900">Check out</v-btn>
+            <v-btn @click="proceedToCheckout" block class="checkout-btn" style="color: white; background-color: #ffa900"
+              :disabled="!cartItems.some(item => item.selected)">
+              Check out
+            </v-btn>
 
             <!-- Remove Selected Button -->
             <v-btn @click="removeSelectedItems" block class="remove-selected-btn"
@@ -247,12 +249,16 @@ export default {
     async proceedToCheckout() {
       const selectedItems = this.cartItems.filter(item => item.selected);
 
-      // Check if user is logged in
+      if (selectedItems.length === 0) {
+        // Alert if no items are selected
+        alert("Please select at least one item to proceed to checkout.");
+        return; // Prevent checkout if no items are selected
+      }
+
       const user = auth.currentUser;
       if (!user) {
-        // Save the cart items in localStorage if user is not logged in
+        // Save the cart items in localStorage if the user is not logged in
         localStorage.setItem('cartItems', JSON.stringify(this.cartItems));
-        // Redirect to signup page
         this.$router.push({ path: '/sign/signin', query: { items: JSON.stringify(selectedItems) } });
       } else {
         // If user is logged in, proceed to checkout
