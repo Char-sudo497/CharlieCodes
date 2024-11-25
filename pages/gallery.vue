@@ -8,10 +8,10 @@
         </v-col>
       </v-row>
 
-      <!-- Search Bar for Products (Outlined) -->
+      <!-- Search Bar for Products (Improved Design) -->
       <v-row>
-        <v-col cols="12" md="3"> <!-- Match this width to the category section -->
-          <v-text-field v-model="searchTerm" placeholder="Search Products" clearable @input="filterProducts"
+        <v-col cols="12" md="6"> <!-- Adjust width for better balance -->
+          <v-text-field v-model="searchTerm" placeholder="Search for products..." clearable @input="filterProducts"
             class="search-bar" prepend-inner-icon="mdi-magnify" outlined>
           </v-text-field>
         </v-col>
@@ -58,12 +58,14 @@
                 <v-card-subtitle style="color: black;">₱{{ product.price }}</v-card-subtitle>
 
                 <!-- Sold Quantity Display -->
-                <v-card-subtitle class="sold-info" style="color: black;">Sold: {{ product.soldQuantity }}</v-card-subtitle>
+                <v-card-subtitle class="sold-info" style="color: black;">Sold: {{ product.soldQuantity
+                  }}</v-card-subtitle>
 
                 <!-- See More and Buy Now buttons -->
                 <v-card-actions class="d-flex justify-space-between">
                   <span class="see-more" @click.stop="goToProduct(product.id)">See More..</span>
-                  <v-btn class="buy-now-btn" @click.stop="buyNow(product)" style="background-color: #FFA900; color: white;">Buy Now</v-btn>
+                  <v-btn class="buy-now-btn" @click.stop="buyNow(product)"
+                    style="background-color: #FFA900; color: white;">Buy Now</v-btn>
                 </v-card-actions>
               </v-card>
             </v-col>
@@ -126,57 +128,67 @@ export default {
   },
   methods: {
     async addToCart(product) {
-  try {
-    const auth = getAuth(); // Initialize Firebase auth
-    const user = auth.currentUser;
+      try {
+        const auth = getAuth(); // Initialize Firebase auth
+        const user = auth.currentUser;
 
-    if (!user) {
-      console.log("User is not logged in");
-      return;
-    }
+        if (!user) {
+          console.log("User is not logged in");
+          this.$router.push('/sign/signin'); // Redirect to sign-in page
+          return;
+        }
 
-    const cartRef = collection(firestore, 'Cart');
-    
-    // Check if the product already exists in the cart
-    const querySnapshot = await getDocs(cartRef);
-    let productExists = false;
-    let cartDocId = null;
+        const cartRef = collection(firestore, 'Cart');
 
-    querySnapshot.forEach(doc => {
-      const cartItem = doc.data();
-      if (cartItem.ProductID === product.id && cartItem.userID === user.uid) {
-        productExists = true;
-        cartDocId = doc.id; // Store the document ID for updating the cart
+        // Check if the product already exists in the cart
+        const querySnapshot = await getDocs(cartRef);
+        let productExists = false;
+        let cartDocId = null;
+
+        querySnapshot.forEach(doc => {
+          const cartItem = doc.data();
+          if (cartItem.ProductID === product.id && cartItem.userID === user.uid) {
+            productExists = true;
+            cartDocId = doc.id; // Store the document ID for updating the cart
+          }
+        });
+
+        if (productExists) {
+          // Update the existing cart item by increasing the quantity
+          const cartDocRef = doc(firestore, 'Cart', cartDocId);
+          await updateDoc(cartDocRef, {
+            Quantity: increment(1),
+          });
+          console.log(`${product.name} quantity updated in cart for user ${user.uid}!`);
+        } else {
+          // Add new product to cart
+          await addDoc(cartRef, {
+            ProductID: product.id,
+            Quantity: 1,
+            userID: user.uid, // Add the userID field
+          });
+          console.log(`${product.name} added to cart for user ${user.uid}!`);
+        }
+      } catch (error) {
+        console.error("Error adding to cart: ", error);
       }
-    });
-
-    if (productExists) {
-      // Update the existing cart item by increasing the quantity
-      const cartDocRef = doc(firestore, 'Cart', cartDocId);
-      await updateDoc(cartDocRef, {
-        Quantity: increment(1),
-      });
-      console.log(`${product.name} quantity updated in cart for user ${user.uid}!`);
-    } else {
-      // Add new product to cart
-      await addDoc(cartRef, {
-        ProductID: product.id,
-        Quantity: 1,
-        userID: user.uid, // Add the userID field
-      });
-      console.log(`${product.name} added to cart for user ${user.uid}!`);
-    }
-  } catch (error) {
-    console.error("Error adding to cart: ", error);
-  }
-},
+    },
     goToProduct(productId) {
       this.$router.push(`/product/${productId}`);
     },
-    buyNow(product) {
-      this.addToCart(product).then(() => {
-        this.$router.push('/cart');
-      });
+    async buyNow(product) {
+      const auth = getAuth(); // Initialize Firebase auth
+      const user = auth.currentUser;
+
+      if (!user) {
+        console.log("User is not logged in");
+        this.$router.push('/sign/signin'); // Redirect to sign-in page
+        return;
+      }
+
+      // Add the product to the cart, then navigate to the cart page
+      await this.addToCart(product);
+      this.$router.push('/cart');
     },
     selectCategory(category) {
       if (this.selectedCategory && this.selectedCategory.CategoryID === category.CategoryID) {
@@ -193,7 +205,7 @@ export default {
         const matchesCategory = this.selectedCategory ? product.categoryID === this.selectedCategory.CategoryID : true;
         return matchesName && matchesCategory;
       });
-      console.log(`Filtered Products: ${JSON.stringify(this.filteredProducts)}`);
+      // console.log(`Filtered Products: ${JSON.stringify(this.filteredProducts)}`);
     }
   },
 };
@@ -292,9 +304,12 @@ export default {
 }
 
 .sold-info {
-  font-size: 14px; /* Adjust font size as needed */
-  color: gray; /* Optional: change color to differentiate */
-  margin-top: -27px; /* Space between name and sold quantity */
+  font-size: 14px;
+  /* Adjust font size as needed */
+  color: gray;
+  /* Optional: change color to differentiate */
+  margin-top: -27px;
+  /* Space between name and sold quantity */
 }
 
 .plus-icon {

@@ -38,7 +38,8 @@
             <!-- See More and Buy Now buttons -->
             <v-card-actions class="d-flex justify-space-between">
               <span class="see-more" @click.stop="goToProduct(product.id)">See More..</span>
-              <v-btn class="buy-now-btn" @click.stop="buyNow(product)" style="background-color: #FFA900; color: white;">Buy Now</v-btn>
+              <v-btn class="buy-now-btn" @click.stop="buyNow(product)"
+                style="background-color: #FFA900; color: white;">Buy Now</v-btn>
             </v-card-actions>
           </v-card>
         </v-col>
@@ -95,56 +96,41 @@ export default {
       this.$router.push({ path: '/gallery', query: { category: item.ProductType } });
     },
     async addToCart(product) {
+      const auth = getAuth(); // Initialize Firebase auth
+      const user = auth.currentUser;
+
+      if (!user) {
+        // Redirect non-signed-in users to the sign-in page
+        this.$router.push('/sign/signin');
+        return; // Exit the method
+      }
+
       try {
-        const user = getAuth().currentUser; // Get the currently authenticated user
         const cartRef = collection(firestore, 'Cart');
 
-        // Find if the product already exists in the cart
-        const cartQuery = user
-          ? query(cartRef, where("userID", "==", user.uid), where("ProductID", "==", product.id))
-          : query(cartRef, where("anonymousID", "==", localStorage.getItem('anonymousID')), where("ProductID", "==", product.id));
-
+        // Check if the product already exists in the cart for the user
+        const cartQuery = query(cartRef, where("userID", "==", user.uid), where("ProductID", "==", product.id));
         const cartSnapshot = await getDocs(cartQuery);
 
         if (!cartSnapshot.empty) {
-          // If the product already exists, update its quantity
+          // Update quantity if the product is already in the cart
           const cartItemDoc = cartSnapshot.docs[0];
           const currentQuantity = cartItemDoc.data().Quantity;
-          const updatedQuantity = currentQuantity + 1;
-
           await updateDoc(cartItemDoc.ref, {
-            Quantity: updatedQuantity,
+            Quantity: currentQuantity + 1,
           });
-
-          // console.log(`${product.name} quantity updated to ${updatedQuantity}!`);
+          console.log(`Updated quantity of ${product.name} in cart for user ${user.uid}!`);
         } else {
-          // If the product doesn't exist, add it as a new item
-          const cartItem = {
+          // Add new product to cart
+          await addDoc(cartRef, {
             ProductID: product.id,
             Quantity: 1,
-          };
-
-          if (user) {
-            // If the user is signed in, link the cart item to their userID
-            await addDoc(cartRef, {
-              ...cartItem,
-              userID: user.uid, // Add userID to the cart item
-            });
-            console.log(`${product.name} added to cart for user ${user.uid}!`);
-          } else {
-            // If no user is signed in, generate an anonymous ID
-            const anonymousID = localStorage.getItem('anonymousID') || 'anon_' + Math.random().toString(36).substr(2, 9);
-
-            localStorage.setItem('anonymousID', anonymousID);
-            await addDoc(cartRef, {
-              ...cartItem,
-              anonymousID: anonymousID, // Add anonymousID field for non-signed-in users
-            });
-            console.log(`${product.name} added to cart for anonymous user ${anonymousID}!`);
-          }
+            userID: user.uid,
+          });
+          console.log(`Added ${product.name} to cart for user ${user.uid}!`);
         }
       } catch (error) {
-        console.error("Error adding to cart: ", error);
+        console.error("Error adding to cart:", error);
       }
     },
     goToProduct(productId) {
@@ -154,7 +140,16 @@ export default {
       this.$router.push(`/gallery`);
     },
     buyNow(product) {
-      // Navigate to cart page after adding the product to the cart
+      const auth = getAuth(); // Initialize Firebase auth
+      const user = auth.currentUser;
+
+      if (!user) {
+        // Redirect non-signed-in users to the sign-in page
+        this.$router.push('/sign/signin');
+        return; // Exit the method
+      }
+
+      // Add product to cart and redirect to cart page
       this.addToCart(product).then(() => {
         this.$router.push('/cart');
       });

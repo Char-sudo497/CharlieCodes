@@ -73,29 +73,39 @@
         </v-list>
       </v-menu>
     </v-app-bar>
+    <v-dialog v-model="logoutDialog" max-width="400">
+      <v-card>
+        <v-card-title>Logout</v-card-title>
+        <v-card-text>Are you sure you want to log out?</v-card-text>
+        <v-card-actions>
+          <v-btn text color="primary" @click="logoutDialog = false">Cancel</v-btn>
+          <v-btn text color="red" @click="logout">Logout</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Drawer for Smaller Screens -->
-<v-navigation-drawer v-model="drawer" app temporary style="background-color: #333;">
-  <v-list>
-    <v-list-item @click="goHome">
-      <v-icon class="white-icon mr-2">mdi-home</v-icon>
-      <v-list-item-title class="white-text">HOME</v-list-item-title>
-    </v-list-item>
-    <v-list-item @click="goToPage('aboutus')">
-      <v-icon class="white-icon mr-2">mdi-information-outline</v-icon>
-      <v-list-item-title class="white-text">ABOUT US</v-list-item-title>
-    </v-list-item>
-    <v-list-item @click="goToPage('contactus')">
-      <v-icon class="white-icon mr-2">mdi-phone</v-icon>
-      <v-list-item-title class="white-text">CONTACT US</v-list-item-title>
-    </v-list-item>
-    <v-subheader class="white-text">CATEGORIES</v-subheader>
-    <v-list-item v-for="(category, index) in categories" :key="index" @click="selectCategory(category)">
-      <v-icon class="white-icon mr-2">mdi-tag-outline</v-icon>
-      <v-list-item-title class="white-text">{{ category }}</v-list-item-title>
-    </v-list-item>
-  </v-list>
-</v-navigation-drawer>
+    <v-navigation-drawer v-model="drawer" app temporary style="background-color: #333;">
+      <v-list>
+        <v-list-item @click="goHome">
+          <v-icon class="white-icon mr-2">mdi-home</v-icon>
+          <v-list-item-title class="white-text">HOME</v-list-item-title>
+        </v-list-item>
+        <v-list-item @click="goToPage('aboutus')">
+          <v-icon class="white-icon mr-2">mdi-information-outline</v-icon>
+          <v-list-item-title class="white-text">ABOUT US</v-list-item-title>
+        </v-list-item>
+        <v-list-item @click="goToPage('contactus')">
+          <v-icon class="white-icon mr-2">mdi-phone</v-icon>
+          <v-list-item-title class="white-text">CONTACT US</v-list-item-title>
+        </v-list-item>
+        <v-subheader class="white-text">CATEGORIES</v-subheader>
+        <v-list-item v-for="(category, index) in categories" :key="index" @click="selectCategory(category)">
+          <v-icon class="white-icon mr-2">mdi-tag-outline</v-icon>
+          <v-list-item-title class="white-text">{{ category }}</v-list-item-title>
+        </v-list-item>
+      </v-list>
+    </v-navigation-drawer>
 
     <!-- Fullscreen Carousel -->
     <v-carousel v-if="showCarousel" height="50vh" hide-delimiter-background :cycle="true">
@@ -264,7 +274,8 @@ export default {
           this.logoutDialog = false;
         })
         .catch((error) => {
-          console.error("Error logging out:", error);
+          console.error("Logout failed:", error.message);
+          this.$toast.error("Failed to log out. Please try again.");
         });
     },
     checkUserAuth() {
