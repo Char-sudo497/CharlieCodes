@@ -86,12 +86,6 @@
               Check out
             </v-btn>
 
-            <!-- Remove Selected Button -->
-            <v-btn @click="removeSelectedItems" block class="remove-selected-btn"
-              style="background-color: red; color: white;">
-              Remove Selected
-            </v-btn>
-
             <!-- Clear Cart Button -->
             <v-btn @click="clearCart" block class="clear-cart-btn" style="background-color: red; color: white;">
               Clear Cart
@@ -269,12 +263,6 @@ export default {
       const docRef = doc(firestore, 'Cart', itemId);
       await deleteDoc(docRef);
       this.cartItems = this.cartItems.filter((item) => item.id !== itemId);
-    },
-    async removeSelectedItems() {
-      const selectedItems = this.cartItems.filter(item => item.selected);
-      const deletePromises = selectedItems.map(item => deleteDoc(doc(firestore, 'Cart', item.id)));
-      await Promise.all(deletePromises);
-      this.cartItems = this.cartItems.filter(item => !item.selected);
     },
     async clearCart() {
       const cartSnapshot = await getDocs(collection(firestore, 'Cart'));
