@@ -204,43 +204,89 @@
             </v-dialog>
 
             <v-dialog v-model="showSavedAddressesDialog" max-width="800px">
-  <v-card>
-    <v-card-title>
-      <span class="headline">Saved Addresses</span>
-    </v-card-title>
+              <v-card>
+                <v-card-title>
+                  <span class="headline">Saved Addresses</span>
+                </v-card-title>
 
-    <v-card-text>
-      <!-- List of Saved Addresses -->
-      <v-list dense>
-        <v-list-item v-for="(address, index) in user.savedAddresses" :key="address.id">
-          <v-list-item-content>
-            <v-list-item-title>
-              <v-icon left color="#ffa900" style="font-size: 30px;">mdi-map-marker-outline</v-icon>
-              <span style="font-size: 14px;">{{ address.address }}</span>
-            </v-list-item-title>
-          </v-list-item-content>
+                <v-card-text>
+                  <!-- List of Saved Addresses -->
+                  <v-list dense>
+                    <v-list-item v-for="(address, index) in user.savedAddresses" :key="address.id">
+                      <v-list-item-content>
+                        <v-list-item-title>
+                          <v-icon left color="#ffa900" style="font-size: 30px;">mdi-map-marker-outline</v-icon>
+                          <span style="font-size: 14px;">{{ address.address }}</span>
+                        </v-list-item-title>
+                      </v-list-item-content>
 
-          <v-list-item-action>
-            <!-- Edit Address Button -->
-            <v-btn color="blue" icon @click="editAddress(index)">
-              <v-icon>mdi-pencil</v-icon>
-            </v-btn>
+                      <v-list-item-action>
+                        <!-- Edit Address Button -->
+                        <v-btn color="blue" icon @click="editAddress(index)">
+                          <v-icon>mdi-pencil</v-icon>
+                        </v-btn>
 
-            <!-- Delete Address Button -->
-            <v-btn color="red" icon @click="deleteAddress(index)">
-              <v-icon>mdi-delete</v-icon>
-            </v-btn>
-          </v-list-item-action>
-        </v-list-item>
-      </v-list>
-    </v-card-text>
+                        <!-- Delete Address Button -->
+                        <v-btn color="red" icon @click="deleteAddress(index)">
+                          <v-icon>mdi-delete</v-icon>
+                        </v-btn>
+                      </v-list-item-action>
+                    </v-list-item>
+                  </v-list>
+                </v-card-text>
 
-    <v-card-actions>
-      <v-spacer></v-spacer>
-      <v-btn @click="showSavedAddressesDialog = false">Close</v-btn>
-    </v-card-actions>
-  </v-card>
-</v-dialog>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn @click="showSavedAddressesDialog = false">Close</v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+
+            <!-- New Verify ID Section -->
+            <v-list-item>
+              <v-list-item-content>
+                <v-list-item-title>
+                  <v-icon left color="#ffa900" style="font-size: 36px;">mdi-check-circle-outline</v-icon>
+                  <span class="header-title">Verify ID</span>
+                </v-list-item-title>
+                <v-list-item-subtitle>
+                  Please upload a photo of your ID and a photo of you holding the ID.
+                </v-list-item-subtitle>
+              </v-list-item-content>
+              <v-list-item-action>
+                <v-btn color="primary" @click="showVerifyDialog = true">
+                  Verify ID
+                </v-btn>
+              </v-list-item-action>
+            </v-list-item>
+
+            <!-- ID Verification Dialog -->
+            <v-dialog v-model="showVerifyDialog" max-width="500px">
+              <v-card>
+                <v-card-title>
+                  <span class="headline">Upload Your ID and Your Photo</span>
+                </v-card-title>
+
+                <v-card-text>
+                  <v-form ref="verifyForm" @submit.prevent="verifyID">
+                    <!-- ID Image Upload -->
+                    <v-file-input v-model="idImage" label="Upload ID Image" accept="image/*" required></v-file-input>
+
+                    <v-file-input v-model="userImage" label="Upload Your Photo with ID" accept="image/*"
+                      required></v-file-input>
+
+                  </v-form>
+                </v-card-text>
+
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn color="primary" @click="verifyID">Verify</v-btn>
+                  <v-btn @click="showVerifyDialog = false">Cancel</v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+            <v-progress-circular v-if="loading" indeterminate color="primary" size="40"></v-progress-circular>
+
 
           </v-list>
         </v-card>
@@ -276,10 +322,14 @@ export default {
         street: '',
         zip: '',
       },
+      showVerifyDialog: false,  // Control visibility of the verify ID dialog
+      idImage: null,            // To store the uploaded ID image
+      userImage: null,          // To store the uploaded user photo with ID // Store the ID entered by the user
       addressTableHeaders: [
         { text: 'Address', value: 'address' },
         { text: 'Actions', value: 'actions', sortable: false, align: 'center' },
       ],
+      loading: false,           // Add the loading property here to make it reactive
     };
   },
   async mounted() {
@@ -302,6 +352,54 @@ export default {
     });
   },
   methods: {
+    async verifyID() {
+      if (!this.idImage || !this.userImage) {
+        alert('Please upload both images.');
+        return;
+      }
+
+      try {
+        // Create form data to send to your backend
+        const formData = new FormData();
+        formData.append('id_image', this.idImage);
+        formData.append('user_image', this.userImage);
+
+        console.log('Submitting form data:', formData); // Log the form data for debugging
+
+        // Call backend API
+        const response = await this.verifyWithAPI(formData);
+
+        if (response.success) {
+          alert('ID verification successful!');
+        } else {
+          alert('Verification failed. Please check your images and try again.');
+        }
+
+        this.showVerifyDialog = false;
+      } catch (error) {
+        console.error('Error verifying ID:', error);
+        alert('An error occurred while verifying your ID. Please try again.');
+      }
+    },
+    async verifyWithAPI(formData) {
+      try {
+        const response = await this.$axios.post('/api/verify-id', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        return response.data;
+      } catch (error) {
+        console.error('Error verifying ID with API:', error.response || error);
+        throw error; // Rethrow the error to be caught in the verifyID method
+      }
+    },
+
+    // Your existing methods...a
+    async saveEditInfo() {
+      // Your existing save logic...
+    },
     async saveEditInfo() {
       try {
         const user = auth.currentUser;
