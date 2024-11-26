@@ -14,11 +14,6 @@
           <v-card-text>
             <v-row justify="center" class="social-login">
               <v-col cols="6">
-                <v-btn @click="signInWithFacebook" block color="#1877F2" class="social-btn">
-                  <v-icon left color="white">mdi-facebook</v-icon> Facebook
-                </v-btn>
-              </v-col>
-              <v-col cols="6">
                 <v-btn @click="signInWithGoogle" block color="#DB4437" class="social-btn">
                   <v-icon left color="white">mdi-google</v-icon> Google
                 </v-btn>
@@ -179,7 +174,7 @@ export default {
         const result = await signInWithPopup(auth, googleProvider);
         const userId = result.user.uid;
 
-        // Fetch the user's document from Firestore
+        // Fetch the user's Firestore document
         const userDocRef = doc(firestore, 'Users', userId);
         const userDoc = await getDoc(userDocRef);
 
@@ -197,49 +192,15 @@ export default {
             localStorage.removeItem('cart');
             this.$router.push('/checkout');
           } else {
-            this.$router.push('/');
+            this.$router.push('/'); // Redirect to home if cart is empty
           }
         } else {
-          // If the user does not exist, create the user document with a default role
-          await setDoc(userDocRef, { userID: userId, role: 'customer' });
-          this.$router.push('/');
+          await setDoc(userDocRef, { userID: userId, role: 'customer' }); // Create a user if not found
+          this.$router.push('/'); // Redirect to home after creating user
         }
       } catch (error) {
         console.error("Google Sign-In Error:", error);
         alert("Google sign-in failed: " + error.message);
-      }
-    },
-    async signInWithFacebook() {
-      try {
-        // Assuming you have a Facebook Auth provider set up
-        const facebookProvider = new firebase.auth.FacebookAuthProvider();
-        const result = await signInWithPopup(auth, facebookProvider);
-        const userId = result.user.uid;
-
-        // Fetch the user's role from Firestore
-        const userDocRef = doc(firestore, 'Users', userId);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const userRole = userDoc.data().role;
-
-          // Ensure the userID field is added to the user document
-          await setDoc(userDocRef, {
-            userID: userId, // Add userID to the Firestore user document
-          }, { merge: true });
-
-          // Check if the user has an allowed role for protected routes
-          if (['admin', 'cashier', 'owner'].includes(userRole)) {
-            const items = this.$route.query.items || '[]'; // Get items from query
-            this.$router.push({ path: '/checkout', query: { items } });
-          } else {
-            this.$router.push('/no-access');
-          }
-        } else {
-          console.error("User role not found in Firestore");
-        }
-      } catch (error) {
-        console.error("Facebook Sign-In Error:", error);
-        alert("Facebook sign-in failed: " + error.message);
       }
     },
     async sendResetEmail() {

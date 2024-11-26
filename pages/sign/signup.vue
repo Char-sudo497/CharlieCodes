@@ -12,11 +12,6 @@
           <v-card-text>
             <v-row justify="center">
               <v-col cols="6">
-                <v-btn @click="signInWithFacebook" block class="social-btn fb-btn" style="background-color: #007bff;">
-                  <v-icon left>mdi-facebook</v-icon> Facebook
-                </v-btn>
-              </v-col>
-              <v-col cols="6">
                 <v-btn @click="signInWithGoogle" block class="social-btn google-btn" style="background-color: #DB4437;">
                   <v-icon left>mdi-google</v-icon> Google
                 </v-btn>
@@ -95,7 +90,6 @@ import {
   getAuth,
   createUserWithEmailAndPassword,
   signInWithPopup,
-  FacebookAuthProvider,
   GoogleAuthProvider,
   sendEmailVerification,
 } from 'firebase/auth';
@@ -131,62 +125,54 @@ export default {
   },
   methods: {
     async signUp() {
-  if (this.$refs.form.validate() && this.password === this.confirmPassword) {
-    const auth = getAuth();
-    const db = getFirestore();
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, this.email, this.password);
-      const user = userCredential.user;
+      if (this.$refs.form.validate() && this.password === this.confirmPassword) {
+        const auth = getAuth();
+        const db = getFirestore();
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, this.email, this.password);
+          const user = userCredential.user;
 
-      // Send email verification
-      await sendEmailVerification(user);
+          // Send email verification
+          await sendEmailVerification(user);
 
-      // Update Firestore with default role 'customer' and other user details
-      await setDoc(doc(db, 'Users', user.uid), {
-        firstName: this.firstName,
-        lastName: this.lastName,
-        email: this.email,
-        role: 'customer',  // Default role 'customer'
-        createdAt: new Date(),
-      });
+          // Update Firestore with default role 'customer' and other user details
+          await setDoc(doc(db, 'Users', user.uid), {
+            firstName: this.firstName,
+            lastName: this.lastName,
+            email: this.email,
+            role: 'customer',  // Default role 'customer'
+            createdAt: new Date(),
+          });
 
-      // Show success dialog
-      this.dialog = true;
+          // Show success dialog
+          this.dialog = true;
 
-      // Wait for the email verification before redirecting
-      await this.checkEmailVerification(user);
-    } catch (error) {
-      alert('Sign-up failed: ' + error.message);
-    }
-  }
-},
-async checkEmailVerification(user) {
-  // Check if the email is verified
-  if (!user.emailVerified) {
-    // Wait for the user to verify the email before proceeding
-    alert('Please verify your email before proceeding!');
-    
-    // Optionally: Automatically resend the verification email
-    await sendEmailVerification(user);
-  } else {
-    // Proceed after email is verified (close the dialog or redirect)
-    this.closeDialog();
-  }
-},
+          // Wait for the email verification before redirecting
+          await this.checkEmailVerification(user);
+        } catch (error) {
+          alert('Sign-up failed: ' + error.message);
+        }
+      }
+    },
+    async checkEmailVerification(user) {
+      // Check if the email is verified
+      if (!user.emailVerified) {
+        // Wait for the user to verify the email before proceeding
+        alert('Please verify your email before proceeding!');
+
+        // Optionally: Automatically resend the verification email
+        await sendEmailVerification(user);
+      } else {
+        // Proceed after email is verified (close the dialog or redirect)
+        this.closeDialog();
+      }
+    },
     goToSignIn() {
       this.$router.push({ path: '/sign/signin' });
     },
     closeDialog() {
       this.dialog = false;
-      this.$router.push('/');
-    },
-    async signInWithFacebook() {
-      try {
-        await signInWithPopup(getAuth(), new FacebookAuthProvider());
-        this.$router.push('/');
-      } catch (error) {
-        alert('Facebook sign-in failed: ' + error.message);
-      }
+      this.$router.push('/');  // Redirect to home page (or root route)
     },
     async signInWithGoogle() {
       const auth = getAuth();
@@ -198,8 +184,8 @@ async checkEmailVerification(user) {
 
         // Check if the user was successfully authenticated
         if (result.user) {
-          const items = this.$route.query.items || '[]';  // Get items from query if present
-          this.$router.push({ path: '/checkout', query: { items } });  // Redirect to checkout with items   
+          // Redirect to home page ('/')
+          this.$router.push('/');
         }
       } catch (error) {
         // Retry on certain errors like network issues
