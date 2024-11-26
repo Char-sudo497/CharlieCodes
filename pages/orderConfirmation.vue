@@ -46,6 +46,23 @@
         <button @click="goBacktoCart" class="go-back-button">Go Back to Cart</button>
       </div>
 
+      <!-- GCash Info Dialog -->
+      <v-dialog v-model="gcashDialog" max-width="500px">
+        <v-card>
+          <v-card-title class="headline">GCash Payment</v-card-title>
+          <v-card-text>
+            <div class="text-center">
+              <img src="@/assets/Gcash.jpg" alt="GCash Image" class="gcash-image" />
+              <p class="gcash-description">Scan the QR code to pay via GCash.</p>
+            </div>
+          </v-card-text>
+          <v-card-actions>
+            <v-btn @click="openQrCodeDialog" color="green">Proceed to QR Code</v-btn>
+            <v-btn @click="closeGcashDialog" color="red">Cancel</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
       <!-- QR Code Dialog -->
       <v-dialog v-model="qrCodeDialog" max-width="400px">
         <v-card>
@@ -79,6 +96,7 @@ export default {
     return {
       orderData: null,
       qrCodeDialog: false, // Dialog visibility for QR code
+      gcashDialog: false,  // Dialog visibility for GCash payment info
       orderId: null,       // Store the orderId after order creation
     };
   },
@@ -99,7 +117,7 @@ export default {
           querySnapshot.forEach((doc) => {
             if (doc.exists()) {
               const productData = doc.data();
-              item.image = productData.Image;  // Changed from 'imageUrl' to 'image'
+              item.image = productData.Image;
             }
           });
         }
@@ -127,9 +145,15 @@ export default {
               createdAt: new Date(),
             });
 
-            this.orderId = orderDocRef.id; // Capture the generated orderId
-            this.orderData.orderId = this.orderId; // Add orderId to the order data
-            this.openQrCodeDialog(); // Open QR code dialog after order is placed
+            this.orderId = orderDocRef.id;
+            this.orderData.orderId = this.orderId;
+
+            // Check if payment method is GCash
+            if (this.orderData.paymentMethod === 'GCash') {
+              this.openGcashDialog(); // Open GCash dialog
+            } else {
+              this.openQrCodeDialog(); // Proceed to QR code directly
+            }
           } else {
             console.error('User not authenticated.');
           }
@@ -138,8 +162,15 @@ export default {
         console.error('Error confirming order:', error);
       }
     },
+    openGcashDialog() {
+      this.gcashDialog = true; // Show GCash dialog
+    },
+    closeGcashDialog() {
+      this.gcashDialog = false; // Close GCash dialog
+    },
     openQrCodeDialog() {
-      this.qrCodeDialog = true;
+      this.gcashDialog = false; // Close GCash dialog
+      this.qrCodeDialog = true; // Show QR code dialog
       this.$nextTick(() => {
         this.generateQrCode();
       });
@@ -149,12 +180,11 @@ export default {
     },
     async generateQrCode() {
       try {
-        // Fetch user details from Users collection (only need to fetch name)
         const usersRef = collection(firestore, 'Users');
         const q = query(usersRef, where('__name__', '==', this.orderData.userId));
         const querySnapshot = await getDocs(q);
 
-        let userName = 'Unknown User';  // Default name if not found
+        let userName = 'Unknown User';
         querySnapshot.forEach((doc) => {
           if (doc.exists()) {
             const userDetails = doc.data();
@@ -162,32 +192,25 @@ export default {
           }
         });
 
-        // Create simplified QR code data
         const orderDetails = {
-          orderId: this.orderData.orderId, // Include orderId
+          orderId: this.orderData.orderId,
           items: this.orderData.cartItems.map(item => ({
-            productName: item.productName, // Include productName
-            quantity: item.Quantity, // Include quantity
+            productName: item.productName,
+            quantity: item.Quantity,
             total: this.orderData.total,
           }))
         };
 
-        // Generate QR code data string
         const qrData = JSON.stringify(orderDetails);
         const canvas = this.$refs.qrCanvas;
 
         if (canvas) {
-          // Clear previous QR code
           const ctx = canvas.getContext('2d');
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-          // Generate new QR code
           await QRCode.toCanvas(canvas, qrData, {
-            width: 200,  // QR code width
-            margin: 4,   // QR code margin
+            width: 200,
+            margin: 4,
           });
-        } else {
-          console.error('Canvas element is not available.');
         }
       } catch (error) {
         console.error('Error generating QR code:', error);
@@ -204,6 +227,31 @@ export default {
 </script>
 
 <style scoped>
+.order-confirmation {
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+}
+
+.gcash-image {
+  width: 100%;
+  height: auto;
+  max-width: 300px;
+  margin-bottom: 10px;
+}
+
+.gcash-description {
+  font-size: 1.2rem;
+  color: #444;
+}
+
+/* Styling buttons and dialogs */
+.separator {
+  border: none;
+  border-top: 2px solid #ddd;
+  margin: 20px 0;
+}
+
 .order-confirmation {
   padding: 20px;
   background-color: #fff;

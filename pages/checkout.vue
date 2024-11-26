@@ -25,7 +25,7 @@
         </div>
 
         <div class="cart-details">
-          <p><strong>Arrives by:</strong> {{ estimatedDeliveryDate }}</p>
+          <p><strong style="font-size: 20px;">Arrives by:</strong> {{ estimatedDeliveryDate }}</p>
         </div>
 
         <!-- Payment Section -->
@@ -99,15 +99,27 @@
     <div v-if="showPaymentModal" class="payment-modal">
       <div class="modal-content">
         <h3>Payment Methods</h3>
+
+        <!-- Default Payment Methods -->
         <div v-for="method in paymentMethods" :key="method.id" class="payment-item">
           <input type="radio" :id="'method' + method.id" v-model="selectedPaymentMethod" :value="method"
             class="payment-checkbox" />
           <label :for="'method' + method.id">{{ method.method }}</label>
         </div>
+
+        <!-- 'Others' Header for Additional Methods -->
+        <h4>Others:</h4>
+        <div v-for="method in otherPaymentMethods" :key="method.id" class="payment-item">
+          <input type="radio" :id="'method' + method.id" v-model="selectedPaymentMethod" :value="method"
+            class="payment-checkbox" />
+          <label :for="'method' + method.id">{{ method.method }}</label>
+        </div>
+
         <button @click="usePaymentMethod" class="use-button">Use</button>
         <button @click="closePaymentModal" class="close-button">Close</button>
       </div>
     </div>
+
 
   </div>
 </template>
@@ -137,6 +149,7 @@ export default {
       selectedPaymentMethod: null,  // Track the selected payment method
       showPaymentModal: false, // Track whether the payment modal is open
       paymentMethods: [], // Store available payment methods
+      otherPaymentMethods: [], // Store "Others" payment methods (e.g., "Pick up")
       authInitialized: false, // Track user authentication state
     };
   },
@@ -233,9 +246,12 @@ export default {
     async loadPaymentMethods() {
       const paymentRef = collection(firestore, 'Payments');
       const querySnapshot = await getDocs(paymentRef);
-      this.paymentMethods = querySnapshot.docs.map(doc => doc.data());
-    },
+      const allPaymentMethods = querySnapshot.docs.map(doc => doc.data());
 
+      // Separate "Pick up" or other custom methods
+      this.paymentMethods = allPaymentMethods.filter(method => method.method !== 'Pick up');
+      this.otherPaymentMethods = allPaymentMethods.filter(method => method.method === 'Pick up');
+    },
     // Use the selected payment method globally
     usePaymentMethod() {
       if (this.selectedPaymentMethod) {
