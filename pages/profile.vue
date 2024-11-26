@@ -11,11 +11,14 @@
               <v-icon v-else style="font-size: 80px; color: #ccc;">mdi-account-circle</v-icon>
             </v-avatar>
             <h3>{{ user.name }}</h3>
-            <v-btn color="primary" @click="$refs.fileInput.click()" text
-              style="font-size: 12px; margin-top: 10px">Upload Profile</v-btn>
-            <input type="file" ref="fileInput" @change="uploadAvatar" accept="image/*" style="display: none;" />
-            <v-btn color="error" @click="removeAvatar" text style="font-size: 12px; margin-top: -20px;">Remove
-              Profile</v-btn>
+
+            <!-- Button Container for Upload and Remove Profile -->
+            <div class="button-container">
+              <v-btn color="primary" @click="$refs.fileInput.click()" text
+                style="font-size: 12px;">Upload Profile</v-btn>
+              <input type="file" ref="fileInput" @change="uploadAvatar" accept="image/*" style="display: none;" />
+              <v-btn color="error" @click="removeAvatar" text style="font-size: 12px;">Remove Profile</v-btn>
+            </div>
           </div>
 
           <v-divider class="my-4"></v-divider>
@@ -604,6 +607,45 @@ export default {
 </script>
 
 <style scoped>
+.header-title {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.profile-header {
+  margin-bottom: 24px;
+}
+
+.button-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.button-container .v-btn {
+  margin: 5px 0;
+}
+
+.sidebar-item {
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.headline {
+  font-size: 32px;
+  font-weight: bold;
+}
+
+.v-icon {
+  font-size: 20px;
+}
+
+.v-btn {
+  font-weight: bold;
+  font-size: 16px;
+}
+
 .header-title {
   font-size: 16px;
   font-weight: bold;
