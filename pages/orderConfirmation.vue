@@ -217,7 +217,7 @@ export default {
       }
     },
     goBacktoCart() {
-      this.$router.push({ name: 'orderConfirmationSuccess' });
+      this.$router.push({ name: 'cart' });
     },
     goBack() {
       this.$router.push({ name: 'orderConfirmationSuccess' });
@@ -245,17 +245,10 @@ export default {
   color: #444;
 }
 
-/* Styling buttons and dialogs */
 .separator {
   border: none;
   border-top: 2px solid #ddd;
   margin: 20px 0;
-}
-
-.order-confirmation {
-  padding: 20px;
-  background-color: #fff;
-  border-radius: 8px;
 }
 
 .order-summary {
@@ -311,27 +304,8 @@ h3 {
   margin: 5px 0;
 }
 
-.details-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
 .pricing-details {
   margin-top: 20px;
-}
-
-.pricing-details .total p {
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: #d9534f;
-}
-
-/* Styling the separation line */
-.separator {
-  border: none;
-  border-top: 2px solid #ddd;
-  margin: 20px 0;
 }
 
 button {
@@ -367,3 +341,4 @@ button {
   color: #444;
 }
 </style>
+

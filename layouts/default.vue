@@ -319,59 +319,27 @@ export default {
 
 <style scoped>
 .v-navigation-drawer {
-  color: white;
-  /* Text color inside drawer */
+  color: white; /* Text color inside drawer */
 }
 
 .v-list-item-title {
-  color: white !important;
-  /* Ensure titles are visible */
-}
-
-.white-icon {
-  color: white !important;
-  /* Icons in drawer */
-}
-
-.v-subheader {
-  font-size: 14px;
-  font-weight: bold;
+  color: white !important; /* Ensure titles are visible */
 }
 
 .logo-title img {
-  height: 80px;
-  /* Default size */
+  height: 80px; /* Default size */
 }
 
 @media (max-width: 600px) {
   .logo-title img {
-    height: 50px;
-    /* Adjust for mobile */
+    height: 50px; /* Adjust for mobile */
   }
-}
-
-.category-button {
-  width: 100%;
-}
-
-.v-avatar {
-  width: 40px;
-  height: 40px;
 }
 
 .footer {
   background-color: #333;
   color: #fff;
   padding: 20px 0;
-}
-
-.h3 {
-  margin-left: 17px;
-  color: white;
-}
-
-.h3-1 {
-  margin-left: 16px;
 }
 
 .social-icons {
@@ -381,56 +349,18 @@ export default {
 }
 
 .v-icon {
-  color: white;
-  /* Default color */
-  transition: color 0.3s ease;
-  /* Smooth transition for color change */
+  color: white; /* Default color */
+  transition: color 0.3s ease; /* Smooth transition for color change */
 }
 
 .social-icons a:hover .v-icon {
-  color: #FFA900;
-  /* Color change on hover */
-}
-
-.v-list-item {
-  cursor: pointer;
-}
-
-.white-text {
-  color: white;
-}
-
-.logo-title {
-  display: flex;
-  align-items: center;
-}
-
-.v-card {
-  padding: 16px;
-}
-
-.v-btn {
-  margin-right: 8px;
+  color: #FFA900; /* Color change on hover */
 }
 
 .clicked {
   background-color: rgba(0, 0, 0, 0.1);
   border-radius: 4px;
   transition: background-color 0.3s ease;
-}
-
-.admin-dashboard-title {
-  color: white;
-  font-weight: bold;
-  font-size: 18px;
-  padding: 16px;
-  margin-bottom: 16px;
-  text-align: center;
-}
-
-.drawer-item {
-  font-size: 14px;
-  color: black;
 }
 
 .carousel-text {
@@ -449,34 +379,5 @@ export default {
   background-color: #FFA900;
   margin: 0 auto;
   margin-top: 10px;
-}
-
-.v-badge {
-  position: relative;
-  top: -10px;
-  right: -10px;
-}
-
-.category-button {
-  justify-content: flex-start;
-  color: #3e3e3e;
-  transition: background-color 0.3s ease;
-}
-
-.category-button:hover {
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-.category-button .v-icon {
-  margin-right: 8px;
-}
-
-.black-icon {
-  color: white !important;
-  transition: none;
-}
-
-.white-icon {
-  color: white;
 }
 </style>
