@@ -238,6 +238,24 @@ export default {
     },
   },
   methods: {
+    async fetchUserProfilePicture(userID) {
+      try {
+        const userRef = collection(firestore, 'Users');
+        const userQuery = query(userRef, where('userID', '==', userID));
+        const querySnapshot = await getDocs(userQuery);
+
+        if (!querySnapshot.empty) {
+          const userDoc = querySnapshot.docs[0];
+          this.userProfilePic = userDoc.data().profilePicture || ''; // Default to an empty string if the field is missing
+        } else {
+          console.warn("User document not found.");
+          this.userProfilePic = ''; // Default to no profile picture
+        }
+      } catch (error) {
+        console.error("Error fetching user profile picture:", error);
+        this.userProfilePic = ''; // Fallback in case of an error
+      }
+    },
     goToPage(page) {
       this.$router.push(`/${page}`);
     },
@@ -280,14 +298,16 @@ export default {
     },
     checkUserAuth() {
       const auth = getAuth();
-      onAuthStateChanged(auth, (user) => {
+      onAuthStateChanged(auth, async (user) => {
         if (user) {
           this.isUserLoggedIn = true;
           this.userID = user.uid;
           this.getCartItems(); // Fetch cart items if user is logged in
+          await this.fetchUserProfilePicture(user.uid); // Fetch the user's profile picture
         } else {
           this.isUserLoggedIn = false;
           this.userID = '';
+          this.userProfilePic = ''; // Reset profile picture when logged out
           this.getCartItemsFromLocalStorage(); // Get cart items from localStorage if user is not logged in
         }
       });
@@ -318,25 +338,29 @@ export default {
 </script>
 
 <style scoped>
-.white-text{
+.white-text {
   color: white;
 }
 
 .v-navigation-drawer {
-  color: white; /* Text color inside drawer */
+  color: white;
+  /* Text color inside drawer */
 }
 
 .v-list-item-title {
-  color: white !important; /* Ensure titles are visible */
+  color: white !important;
+  /* Ensure titles are visible */
 }
 
 .logo-title img {
-  height: 80px; /* Default size */
+  height: 80px;
+  /* Default size */
 }
 
 @media (max-width: 600px) {
   .logo-title img {
-    height: 50px; /* Adjust for mobile */
+    height: 50px;
+    /* Adjust for mobile */
   }
 }
 
@@ -353,12 +377,15 @@ export default {
 }
 
 .v-icon {
-  color: white; /* Default color */
-  transition: color 0.3s ease; /* Smooth transition for color change */
+  color: white;
+  /* Default color */
+  transition: color 0.3s ease;
+  /* Smooth transition for color change */
 }
 
 .social-icons a:hover .v-icon {
-  color: #FFA900; /* Color change on hover */
+  color: #FFA900;
+  /* Color change on hover */
 }
 
 .clicked {

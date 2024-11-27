@@ -124,7 +124,16 @@ export default {
     },
   },
   async created() {
-    await this.fetchCartItems();
+    // Wait for Firebase authentication state to be initialized
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        // If no user is logged in, redirect to the sign-in page
+        this.$router.push({ path: '/sign/signin' });
+      } else {
+        // If a user is logged in, fetch cart items
+        await this.fetchCartItems();
+      }
+    });
   },
   methods: {
     async fetchCartItems() {

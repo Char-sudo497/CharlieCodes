@@ -30,7 +30,7 @@ export default async function ({ redirect, route }) {
                 console.log("User role fetched from Firestore:", userRole);
 
                 // Define the roles that can access any page
-                const allowedRoles = ['customer', 'admin', 'owner', 'cashier'];
+                const allowedRoles = ['customer', 'admin', 'owner', 'cashier', 'Business Owner'];
 
                 // If the user has one of the allowed roles, grant access
                 if (allowedRoles.includes(userRole)) {

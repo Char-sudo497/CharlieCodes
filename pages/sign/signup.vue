@@ -56,6 +56,9 @@
                 </template>
               </v-text-field>
 
+              <!-- Role Selection (optional) -->
+              <v-select v-model="selectedRole" :items="roleOptions" label="Are You a Business Owner?"></v-select>
+
               <v-btn @click="signUp" class="mt-4 primary-btn" block
                 style="background-color: #000; color: #fff; font-weight: bold;">
                 Sign Up
@@ -108,6 +111,7 @@ export default {
       showPassword: false,
       showConfirmPassword: false,
       dialog: false,
+      roleOptions: ['Business Owner'], // Only 'Business Owner' role in the list
       nameRules: [v => !!v || 'Name is required', v => v.length >= 2 || 'Name must be at least 2 characters'],
       emailRules: [v => !!v || 'Email is required', v => /.+@.+\..+/.test(v) || 'E-mail must be valid'],
       passwordRules: [
@@ -140,8 +144,9 @@ export default {
             firstName: this.firstName,
             lastName: this.lastName,
             email: this.email,
-            role: 'customer',  // Default role 'customer'
+            role: this.selectedRole,  // Use the selected role, defaulting to 'customer'
             createdAt: new Date(),
+            userID: user.uid  // Add the userID field with the auto-generated UID
           });
 
           // Show success dialog
@@ -150,15 +155,13 @@ export default {
           // Wait for the email verification before redirecting
           await this.checkEmailVerification(user);
         } catch (error) {
-          alert('Sign-up failed: ' + error.message);
+          
         }
       }
     },
     async checkEmailVerification(user) {
       // Check if the email is verified
       if (!user.emailVerified) {
-        // Wait for the user to verify the email before proceeding
-        alert('Please verify your email before proceeding!');
 
         // Optionally: Automatically resend the verification email
         await sendEmailVerification(user);
