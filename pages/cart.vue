@@ -82,7 +82,8 @@
               <p v-if="subtotal >= 1000">Congrats, you're eligible for Free Shipping!</p>
             </div>
             <v-btn @click="proceedToCheckout" block class="checkout-btn" style="color: white; background-color: #ffa900"
-              :disabled="!cartItems.some(item => item.selected)">
+              :disabled="!cartItems.some(item => item.selected) || isLoading">
+              <v-progress-circular v-if="isLoading" indeterminate color="white" size="24" width="4" class="mr-2" />
               Check out
             </v-btn>
 
@@ -100,11 +101,12 @@
 <script>
 import { auth } from '~/plugins/firebase';
 import { firestore } from '~/plugins/firebase';
-import { collection, getDocs, deleteDoc, doc, updateDoc, where } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, where, onSnapshot } from 'firebase/firestore';
 
 export default {
   data() {
     return {
+      isLoading: false,  // Loading state
       cartItems: [], // Array to hold cart items
     };
   },
@@ -133,13 +135,11 @@ export default {
         return;
       }
 
-      // Fetch the cart items for the logged-in user
-      const cartSnapshot = await getDocs(
-        collection(firestore, 'Cart'),
-        where('userID', '==', user.uid) // Filter by userID to get only the current user's items
-      );
-      const productsSnapshot = await getDocs(collection(firestore, 'Products'));
+      // Fetch the cart items for the logged-in user in real-time
+      const cartRef = collection(firestore, 'Cart');
+      const productsRef = collection(firestore, 'Products');
 
+      const productsSnapshot = await getDocs(productsRef); // This will fetch products once
       const products = {};
       productsSnapshot.docs.forEach((doc) => {
         const data = doc.data();
@@ -151,31 +151,42 @@ export default {
         };
       });
 
-      const groupedItems = {};
+      // Real-time listener for cart items
+      this.cartItemsUnsub = onSnapshot(
+        cartRef,
+        (cartSnapshot) => {
+          const groupedItems = {};
 
-      cartSnapshot.docs.forEach((doc) => {
-        const data = doc.data();
-        const productID = data.ProductID;
+          cartSnapshot.docs.forEach((doc) => {
+            const data = doc.data();
+            const productID = data.ProductID;
 
-        // Only add items if they are not confirmed orders
-        if (data.orderStatus !== 'Confirmed') {
-          if (!groupedItems[productID]) {
-            groupedItems[productID] = {
-              id: doc.id,
-              productID: productID,
-              productName: products[productID]?.name || 'Unknown Product',
-              price: Number(products[productID]?.price) || 0,
-              image: products[productID]?.image || null,
-              description: products[productID]?.description || '',
-              Quantity: data.Quantity,
-              selected: false,
-            };
-          } else {
-            groupedItems[productID].Quantity += data.Quantity;
-          }
+            // Only add items if they are not confirmed orders
+            if (data.orderStatus !== 'Confirmed' && data.userID === user.uid) {
+              if (!groupedItems[productID]) {
+                groupedItems[productID] = {
+                  id: doc.id,
+                  productID: productID,
+                  productName: products[productID]?.name || 'Unknown Product',
+                  price: Number(products[productID]?.price) || 0,
+                  image: products[productID]?.image || null,
+                  description: products[productID]?.description || '',
+                  Quantity: data.Quantity,
+                  selected: false,
+                };
+              } else {
+                groupedItems[productID].Quantity += data.Quantity;
+              }
+            }
+          });
+
+          // Update the cart items in real-time
+          this.cartItems = Object.values(groupedItems);
+        },
+        (error) => {
+          console.error('Error listening to cart items:', error);
         }
-      });
-      this.cartItems = Object.values(groupedItems);
+      );
     },
     async incrementQuantity(item) {
       const newQuantity = item.Quantity + 1;
@@ -208,8 +219,14 @@ export default {
         // Redirect to sign-in if the user is not logged in
         this.$router.push({ path: '/sign/signin' });
       } else {
-        // If user is logged in, proceed to checkout
-        this.$router.push({ path: '/checkout', query: { items: JSON.stringify(selectedItems) } });
+        this.isLoading = true;  // Set loading state to true before routing
+
+        // Simulate a delay or make API calls here if needed
+        setTimeout(() => {
+          // After the loading is finished, navigate to checkout page
+          this.$router.push({ path: '/checkout', query: { items: JSON.stringify(selectedItems) } });
+          this.isLoading = false;  // Reset loading state
+        }, 2000);  // Adjust the timeout as per your needs
       }
     },
     async removeFromCart(itemId) {

@@ -17,11 +17,11 @@
         class="elevation-1"
         dense
       >
-        <!-- <template #item.actions="{ item }">
-          <v-btn small color="primary" @click="viewTransactionDetails(item)">
-            View Details
+        <template #item.actions="{ item }">
+          <v-btn small color="primary" @click="rateProduct(item)">
+            Rate Product
           </v-btn>
-        </template> -->
+        </template>
       </v-data-table>
     </v-card>
   </v-container>
@@ -101,8 +101,9 @@ export default {
         }
       );
     },
-    viewTransactionDetails(transaction) {
-      this.$router.push(`/transaction/${transaction.orderId}`);
+    rateProduct(transaction) {
+      // Navigate to the /rating page and pass the orderId as a query parameter
+      this.$router.push({ path: '/rating', query: { orderId: transaction.orderId } });
     },
   },
   mounted() {

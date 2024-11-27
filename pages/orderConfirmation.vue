@@ -2,6 +2,12 @@
   <div class="order-confirmation">
     <h2>Order Confirmation</h2>
 
+    <!-- Loading Spinner -->
+    <div v-if="loading" class="loading-overlay">
+      <v-progress-circular indeterminate color="primary" size="50" width="5"
+        class="loading-spinner"></v-progress-circular>
+    </div>
+
     <div v-if="orderData" class="order-summary">
       <!-- Order Items Section -->
       <div class="order-items">
@@ -98,6 +104,7 @@ export default {
       qrCodeDialog: false, // Dialog visibility for QR code
       gcashDialog: false,  // Dialog visibility for GCash payment info
       orderId: null,       // Store the orderId after order creation
+      loading: false,      // Loading state
     };
   },
   created() {
@@ -127,6 +134,7 @@ export default {
     },
     async confirmOrder() {
       try {
+        this.loading = true; // Show loading animation
         if (this.orderData) {
           const auth = getAuth();
           const user = auth.currentUser;
@@ -148,18 +156,24 @@ export default {
             this.orderId = orderDocRef.id;
             this.orderData.orderId = this.orderId;
 
-            // Check if payment method is GCash
-            if (this.orderData.paymentMethod === 'GCash') {
-              this.openGcashDialog(); // Open GCash dialog
-            } else {
-              this.openQrCodeDialog(); // Proceed to QR code directly
-            }
+            // Delay for loading effect before opening dialog
+            setTimeout(() => {
+              // Check if payment method is GCash
+              if (this.orderData.paymentMethod === 'GCash') {
+                this.openGcashDialog(); // Open GCash dialog
+              } else {
+                this.openQrCodeDialog(); // Proceed to QR code directly
+              }
+              this.loading = false; // Hide loading animation
+            }, 2000); // Set a delay (2 seconds) for the loading animation
           } else {
             console.error('User not authenticated.');
+            this.loading = false;
           }
         }
       } catch (error) {
         console.error('Error confirming order:', error);
+        this.loading = false;
       }
     },
     openGcashDialog() {
@@ -227,6 +241,26 @@ export default {
 </script>
 
 <style scoped>
+.loading-overlay {
+  position: fixed;
+  /* This makes the spinner float above other content */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  /* Slightly transparent background */
+  z-index: 9999;
+  /* Ensures the spinner stays on top */
+}
+
+.loading-spinner {
+  margin: 0 auto;
+}
+
 .order-confirmation {
   padding: 20px;
   background-color: #fff;
@@ -341,4 +375,3 @@ button {
   color: #444;
 }
 </style>
-

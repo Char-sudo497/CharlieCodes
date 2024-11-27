@@ -318,6 +318,10 @@ export default {
 </script>
 
 <style scoped>
+.white-text{
+  color: white;
+}
+
 .v-navigation-drawer {
   color: white; /* Text color inside drawer */
 }

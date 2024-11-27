@@ -29,13 +29,6 @@
       <!-- Product Image -->
       <v-col cols="12" md="6">
         <v-img :src="product.Image" height="400px" contain></v-img>
-
-        <!-- Small Images -->
-        <v-row class="mt-2" justify="space-between">
-          <v-col cols="4" v-for="(img, index) in smallImages" :key="index">
-            <v-img :src="img" height="100px" contain class="hoverable-image"></v-img>
-          </v-col>
-        </v-row>
       </v-col>
 
       <!-- Product Details -->
@@ -46,8 +39,8 @@
             <v-row class="align-center mb-2">
               <v-col class="d-flex align-center" style="margin-bottom: -55px;">
                 <v-card-title class="text-h5 font-weight-bold">{{ product.ProductName }}</v-card-title>
-                <v-icon style="font-size: 18px;" color="yellow darken-3" class="ml-2">mdi-star</v-icon>
-                <span>{{ product.Rating }} ({{ product.NumberOfRatings }} ratings)</span>
+                <v-icon style="font-size: 26px;" color="yellow darken-3" class="ml-2">mdi-star</v-icon>
+                <span style="color: black; font-weight: bold;">{{ averageRating }} ({{ totalReviews }} ratings)</span>
               </v-col>
             </v-row>
 
@@ -125,28 +118,20 @@
     <v-container class="mt-8">
       <v-row>
         <v-col cols="12">
-          <h3 class="text-h6 font-weight-bold">Customer Reviews</h3>
+          <h3 class="text-h6 font-weight-bold" style="margin-bottom: 20px;">Customer Rates</h3>
           <div class="review-summary">
-            <div class="rating">
+            <div class="rating" style="margin-bottom: 20px;">
               <v-icon color="yellow darken-3">mdi-star</v-icon>
-              <span class="font-weight-bold">4.5 out of 5</span>
+              <span class="font-weight-bold">{{ averageRating }} out of 5</span>
             </div>
             <div class="progress-bars">
               <v-row v-for="(rating, index) in ratingsData" :key="index" class="align-center">
                 <v-col cols="1">
-                  <span class="star-label">{{ rating.stars }} Stars</span>
+                  <span class="star-label" style="color: black;">{{ rating.stars }} Star</span>
                 </v-col>
                 <v-col cols="8">
                   <v-progress-linear :value="rating.percentage" height="8" color="yellow darken-3"
                     class="my-1 progress-bar-custom"></v-progress-linear>
-                </v-col>
-              </v-row>
-              <!-- Rate Products Button -->
-              <v-row class="mt-2 justify-end">
-                <v-col cols="auto">
-                  <v-btn @click="goToRating" class="rate-products-btn" style="background-color: #ffa900;">
-                    Rate Products
-                  </v-btn>
                 </v-col>
               </v-row>
             </div>
@@ -155,6 +140,7 @@
       </v-row>
 
       <v-row v-for="(review, index) in reviews" :key="index" class="review-card">
+        <h3 class="text-h6 font-weight-bold" style="margin-bottom: 20px;">Customer Reviews</h3>
         <v-col cols="12" class="d-flex">
           <v-avatar size="40" class="mr-2">
             <v-img :src="review.avatar" />
@@ -174,8 +160,9 @@
 </template>
 
 <script>
+import { auth } from '~/plugins/firebase';
 import { firestore } from '~/plugins/firebase';
-import { doc, getDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, query, where, getDocs, updateDoc, } from 'firebase/firestore';
 
 export default {
   data() {
@@ -196,16 +183,7 @@ export default {
       ],
       reviews: [
         {
-          name: "ERIN",
-          avatar: require('@/assets/avatar 1.jpg'),
-          rating: 5,
-          comment: "Accurate Size, The Condition is Excellent"
-        },
-        {
-          name: "Robert",
-          avatar: require('@/assets/avatar 1.jpg'),
-          rating: 5,
-          comment: "Great fit for my Door Size, The Condition is Excellent."
+
         }
       ],
       ratingsData: [
@@ -214,7 +192,9 @@ export default {
         { stars: 3, percentage: 10 },
         { stars: 2, percentage: 10 },
         { stars: 1, percentage: 10 }
-      ]
+      ],
+      averageRating: 0, // Initialize averageRating to 0
+      cartCount: 0 // Initialize the cart count
     };
   },
   async created() {
@@ -229,6 +209,7 @@ export default {
           id: productSnapshot.id, // Add the document ID
           ...productSnapshot.data() // Spread the other product fields
         };
+        this.fetchProductReviews(productId); // Fetch reviews for the product
         this.stockQuantity = this.product.Stock; // Assuming Stock is a field in your document
         this.soldQuantity = this.product.Sold; // Assuming Sold is a field in your document
       } else {
@@ -239,6 +220,73 @@ export default {
     }
   },
   methods: {
+    async fetchProductReviews(productId) {
+      try {
+        const ratingsQuery = query(
+          collection(firestore, 'Ratings'),
+          where('productName', '==', this.product.ProductName)
+        );
+        const ratingsSnapshot = await getDocs(ratingsQuery);
+        const allRatings = [];
+        let totalRatingSum = 0;
+
+        for (const ratingDoc of ratingsSnapshot.docs) {
+          const ratingData = ratingDoc.data();
+
+          // Fetch user details from the Users collection
+          let userName = 'Anonymous'; // Default name if user data isn't found
+          let avatar = require('@/assets/avatar 1.jpg');
+
+          if (ratingData.userId) {
+            const userDoc = await getDoc(doc(firestore, 'Users', ratingData.userId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              userName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+              avatar = userData.avatar || avatar; // Use user's avatar if available
+            }
+          }
+
+          // Add rating details with user information
+          allRatings.push({
+            name: userName,
+            avatar: avatar,
+            rating: ratingData.ratings,
+            comment: ratingData.ratingDescription,
+          });
+
+          totalRatingSum += ratingData.ratings;
+        }
+
+        this.reviews = allRatings;
+        this.totalReviews = allRatings.length;
+
+        // Calculate average rating
+        this.averageRating = this.totalReviews > 0 ? (totalRatingSum / this.totalReviews).toFixed(1) : 0;
+
+        // Populate the ratings distribution data
+        this.calculateRatingsDistribution(allRatings);
+      } catch (error) {
+        console.error('Error fetching product reviews:', error);
+      }
+    },
+    calculateRatingsDistribution(ratings) {
+      const ratingCounts = [0, 0, 0, 0, 0]; // Array to hold counts for 1 to 5 stars
+
+      // Count each rating
+      ratings.forEach((review) => {
+        if (review.rating >= 1 && review.rating <= 5) {
+          ratingCounts[review.rating - 1]++;
+        }
+      });
+
+      const totalReviews = ratings.length;
+
+      // Generate percentage data for each star rating (1 to 5 stars)
+      this.ratingsData = ratingCounts.map((count, index) => ({
+        stars: index + 1, // Star value is the index + 1 (e.g., 1-star for index 0)
+        percentage: totalReviews > 0 ? ((count / totalReviews) * 100).toFixed(1) : '0.0',
+      }));
+    },
     validateQuantity() {
       if (this.quantity > this.stockQuantity) {
         this.quantity = this.stockQuantity; // Reset to max stock quantity if exceeded
@@ -246,17 +294,51 @@ export default {
     },
     async addToCart(product, quantity) {
       try {
+        const user = auth.currentUser; // Get the current logged-in user
+
+        if (!user) {
+          // Redirect to sign-in page if the user is not authenticated
+          this.$router.push('/sign/signin');
+          return;
+        }
+
+        // Proceed if the user is authenticated
         const cartRef = collection(firestore, 'Cart'); // Reference to the Cart collection
-        await addDoc(cartRef, {
-          ProductID: product.id, // Add Product ID here
-          ProductName: product.ProductName, // Ensure you are accessing correct fields
-          Price: product.Price,
-          Quantity: quantity,
-          TotalPrice: product.Price * quantity
-        });
-        console.log('Product added to cart:', product.ProductName); // Log success message
+
+        // Create a query to check if the product already exists in the user's cart
+        const productQuery = query(
+          cartRef,
+          where('userID', '==', user.uid),
+          where('ProductID', '==', product.id)
+        );
+
+        const querySnapshot = await getDocs(productQuery); // Get query snapshot
+
+        if (querySnapshot.empty) {
+          // If no existing product, add the product to the cart
+          await addDoc(cartRef, {
+            userID: user.uid, // Add user ID
+            ProductID: product.id, // Add Product ID       
+            Quantity: quantity, // Add Quantity      
+          });
+
+          console.log('Product added to cart:', product.ProductName); // Log success message
+        } else {
+          // If the product already exists in the cart, update the quantity
+          const cartDoc = querySnapshot.docs[0]; // Get the first matching document
+          const updatedQuantity = cartDoc.data().Quantity + quantity; // Update the quantity
+
+          await updateDoc(cartDoc.ref, {
+            Quantity: updatedQuantity, // Update the quantity field
+          });
+
+          console.log('Cart updated with new quantity:', updatedQuantity); // Log success message
+        }
+
+        // Update the cart count
+        this.cartCount += quantity;
       } catch (error) {
-        console.error('Error adding product to cart:', error); // Log any errors during adding
+        console.error('Error adding or updating product in cart:', error); // Log any errors during adding or updating
       }
     },
     goToProducts() {
@@ -278,12 +360,14 @@ export default {
   cursor: pointer;
   transition: transform 0.2s;
 }
+
 .hoverable-image:hover {
   transform: scale(1.05);
 }
 
 .add-to-cart-btn {
-  background-color: #ff8f00; /* Custom color for Add to Cart button */
+  background-color: #ff8f00;
+  /* Custom color for Add to Cart button */
   color: white;
   margin-bottom: -10px;
 }
@@ -299,7 +383,8 @@ export default {
 }
 
 .rate-products-btn {
-  background-color: #ff8f00; /* Custom color for Rate Products button */
+  background-color: #ff8f00;
+  /* Custom color for Rate Products button */
   color: white;
 }
 </style>

@@ -25,7 +25,7 @@
 
             <v-card-title class="d-flex justify-space-between align-center">
               <span>{{ product.name }}</span>
-              <v-btn icon class="cart-icon" @click.stop="addToCart(product)">
+              <v-btn icon class="cart-icon" @click.stop="addToCart(product)" :disabled="loading">
                 <v-icon style="color: #FFA900;">mdi-cart-minus</v-icon>
               </v-btn>
             </v-card-title>
@@ -38,8 +38,15 @@
             <!-- See More and Buy Now buttons -->
             <v-card-actions class="d-flex justify-space-between">
               <span class="see-more" @click.stop="goToProduct(product.id)">See More..</span>
-              <v-btn class="buy-now-btn" @click.stop="buyNow(product)"
-                style="background-color: #FFA900; color: white;">Buy Now</v-btn>
+              <v-btn class="buy-now-btn" @click.stop="buyNow(product)" :disabled="loading"
+                style="background-color: #FFA900; color: white;">
+                <template v-if="loading">
+                  <v-progress-circular indeterminate size="24" color="white" />
+                </template>
+                <template v-else>
+                  Buy Now
+                </template>
+              </v-btn>
             </v-card-actions>
           </v-card>
         </v-col>
@@ -67,6 +74,7 @@ export default {
     return {
       products: [],
       itemList: [],
+      loading: false,  // Add a loading state
     };
   },
   async created() {
@@ -95,10 +103,12 @@ export default {
       this.$router.push({ path: '/gallery', query: { category: item.ProductType } });
     },
     async addToCart(product) {
+      this.loading = true;  // Start loading animation
       const auth = getAuth();
       const user = auth.currentUser;
 
       if (!user) {
+        this.loading = false;  // Stop loading animation
         // Redirect non-signed-in users to the sign-in page
         this.$router.push('/sign/signin');
         return;
@@ -131,6 +141,9 @@ export default {
       } catch (error) {
         console.error("Error adding to cart:", error);
       }
+      finally {
+        this.loading = false;  // Stop loading animation
+      }
     },
     goToProduct(productId) {
       this.$router.push(`/product/${productId}`);
@@ -138,20 +151,26 @@ export default {
     goToGallery() {
       this.$router.push(`/gallery`);
     },
-    buyNow(product) {
+    async buyNow(product) {
+      this.loading = true;  // Start loading animation
       const auth = getAuth();
       const user = auth.currentUser;
 
       if (!user) {
+        this.loading = false;  // Stop loading animation
         // Redirect non-signed-in users to the sign-in page
         this.$router.push('/sign/signin');
         return;
       }
 
-      // Add product to cart and redirect to cart page
-      this.addToCart(product).then(() => {
+      try {
+        await this.addToCart(product);
         this.$router.push('/cart');
-      });
+      } catch (error) {
+        console.error("Error during buy now:", error);
+      } finally {
+        this.loading = false;  // Stop loading animation
+      }
     },
   },
 };

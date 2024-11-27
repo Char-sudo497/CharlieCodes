@@ -14,8 +14,8 @@
 
             <!-- Button Container for Upload and Remove Profile -->
             <div class="button-container">
-              <v-btn color="primary" @click="$refs.fileInput.click()" text
-                style="font-size: 12px;">Upload Profile</v-btn>
+              <v-btn color="primary" @click="$refs.fileInput.click()" text style="font-size: 12px;">Upload
+                Profile</v-btn>
               <input type="file" ref="fileInput" @change="uploadAvatar" accept="image/*" style="display: none;" />
               <v-btn color="error" @click="removeAvatar" text style="font-size: 12px;">Remove Profile</v-btn>
             </div>
@@ -250,14 +250,11 @@
               <v-list-item-content>
                 <v-list-item-title>
                   <v-icon left color="#ffa900" style="font-size: 36px;">mdi-check-circle-outline</v-icon>
-                  <span class="header-title">Verify ID</span>
+                  <span class="header-title">Verify Using ID</span>
                 </v-list-item-title>
-                <v-list-item-subtitle>
-                  Please upload a photo of your ID and a photo of you holding the ID.
-                </v-list-item-subtitle>
               </v-list-item-content>
               <v-list-item-action>
-                <v-btn color="primary" @click="showVerifyDialog = true">
+                <v-btn style="color: white; background-color: #ffa900;" @click="showVerifyDialog = true">
                   Verify ID
                 </v-btn>
               </v-list-item-action>

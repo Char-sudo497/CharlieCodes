@@ -53,7 +53,14 @@
           <p><strong>Total</strong></p>
           <p><strong>₱{{ total.toFixed(2) }}</strong></p>
         </div>
-        <button class="checkout-button" @click="placeOrder">Place Your Order</button>
+        <!-- Add this spinner right before the checkout button -->
+        <div v-if="loading" class="loading-overlay">
+          <div class="spinner"></div>
+        </div>
+        <button class="checkout-button" @click="placeOrder" :disabled="loading">
+          <span v-if="loading">Processing...</span>
+          <span v-else>Place Your Order</span>
+        </button>
         <button class="back-to-cart-button" @click="goBackToCart">Back to Cart</button>
       </div>
     </div>
@@ -120,7 +127,6 @@
       </div>
     </div>
 
-
   </div>
 </template>
 
@@ -132,6 +138,7 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 export default {
   data() {
     return {
+      loading: false,  // Track the loading state
       cartItems: [],
       deliveryAddress: ' ',
       subtotal: 0,
@@ -313,6 +320,8 @@ export default {
         return; // Stop execution if no payment method is selected
       }
 
+      this.loading = true; // Set loading to true to show the spinner
+
       try {
         const auth = getAuth();
         const user = auth.currentUser;
@@ -330,14 +339,18 @@ export default {
             status: 'Pending',
             createdAt: new Date(),
           };
-
-          // Navigate to the Order Confirmation page, passing orderData in query params
-          this.$router.push({ name: 'orderConfirmation', query: { orderData: JSON.stringify(orderData) } });
+          // Simulate network delay
+          setTimeout(() => {
+            // Navigate to the Order Confirmation page, passing orderData in query params
+            this.$router.push({ name: 'orderConfirmation', query: { orderData: JSON.stringify(orderData) } });
+            this.loading = false; // Set loading to false after the order is placed
+          }, 2000); // Delay for 2 seconds to simulate network delay
         } else {
           console.error("User not authenticated.");
         }
       } catch (error) {
         console.error("Error placing order:", error);
+        this.loading = false; // Set loading to false if there is an error
       }
     },
     goBackToCart() {
@@ -348,6 +361,39 @@ export default {
 </script>
 
 <style scoped>
+/* Add this to your scoped CSS */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid #ff6f00;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 .checkout-container {
   display: flex;
   flex-wrap: wrap;
@@ -627,5 +673,4 @@ button.back-to-cart-button {
 .close-button:hover {
   background-color: #ffa900;
 }
-
 </style>
