@@ -73,6 +73,7 @@
         </v-list>
       </v-menu>
     </v-app-bar>
+
     <v-dialog v-model="logoutDialog" max-width="400">
       <v-card>
         <v-card-title>Logout</v-card-title>
@@ -80,6 +81,20 @@
         <v-card-actions>
           <v-btn text color="primary" @click="logoutDialog = false">Cancel</v-btn>
           <v-btn text color="red" @click="logout">Logout</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="loginPromptDialog" max-width="500">
+      <v-card>
+        <v-card-title class="headline">Login Required</v-card-title>
+        <v-card-text>
+          To access your profile, please log in first.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn style="background-color: #FFA900; color: white" @click="proceedToLogin">Log In</v-btn>
+          <v-btn text @click="loginPromptDialog = false">Cancel</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -199,6 +214,7 @@ export default {
   name: 'DefaultLayout',
   data() {
     return {
+      loginPromptDialog: false, // Controls the login prompt dialog
       categories: ['Category 1', 'Category 2', 'Category 3'],
       drawer: false,
       logoutDialog: false,
@@ -266,7 +282,15 @@ export default {
       this.$router.push('/');
     },
     ProfilePage() {
-      this.$router.push('/profile');
+      if (this.isUserLoggedIn) {
+        this.$router.push('/profile');
+      } else {
+        this.loginPromptDialog = true; // Show the dialog if the user is not logged in
+      }
+    },
+    proceedToLogin() {
+      this.loginPromptDialog = false; // Close the dialog
+      this.$router.push('/sign/signin'); // Redirect to the sign-in page
     },
     async getCategories() {
       try {
