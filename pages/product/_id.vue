@@ -346,6 +346,9 @@ export default {
     },
     goToRating() {
       this.$router.push('/rating'); // Navigate to the rating page
+    },
+    totalReviews() {
+      
     }
   }
 };
