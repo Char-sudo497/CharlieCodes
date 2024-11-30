@@ -7,8 +7,8 @@
             <h2>Sign In</h2>
           </v-card-text>
 
-          <div class="text-center divider mt-2 mb-2">
-            -----sign in using-----
+          <div class="text-center" style="margin-top: 5px;">
+            ----- sign in using -----
           </div>
 
           <v-card-text>
@@ -21,8 +21,8 @@
             </v-row>
           </v-card-text>
 
-          <div class="text-center divider mt-2 mb-2">
-            -----or-----
+          <div class="text-center" style="margin-bottom: -15px;">
+            ----- or -----
           </div>
 
           <v-card-text>
@@ -93,7 +93,7 @@
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn style="background-color: #ffa900; color: white" @click="sendResetEmail">Send</v-btn>
-          <v-btn text @click="forgotPasswordDialog = false">Cancel</v-btn>
+          <v-btn text @click="closeForgotPasswordDialog">Cancel</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -102,8 +102,8 @@
 
 <script>
 import { auth, firestore, googleProvider } from '~/plugins/firebase';
-import { signInWithPopup, signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { signInWithPopup, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 export default {
   data() {
@@ -172,7 +172,10 @@ export default {
     async signInWithGoogle() {
       try {
         const result = await signInWithPopup(auth, googleProvider);
+        const user = result.user; // This is the correct place to get user information
         const userId = result.user.uid;
+        const userName = result.user.displayName || '';
+        const [firstName, lastName] = userName.split(' ');  // Split the name into first and last name
 
         // Fetch the user's Firestore document
         const userDocRef = doc(firestore, 'Users', userId);
@@ -195,7 +198,14 @@ export default {
             this.$router.push('/'); // Redirect to home if cart is empty
           }
         } else {
-          await setDoc(userDocRef, { userID: userId, role: 'customer' }); // Create a user if not found
+          // Create a new user document in Firestore
+          await setDoc(userDocRef, {
+            userID: userId,
+            firstName: firstName, // Store the first name
+            lastName: lastName,   // Store the last name
+            email: user.email,    // Store the email
+            role: 'customer'      // Default role is 'customer'
+          });
           this.$router.push('/'); // Redirect to home after creating user
         }
       } catch (error) {
@@ -206,9 +216,20 @@ export default {
     async sendResetEmail() {
       if (this.resetEmail) {
         try {
-          await sendPasswordResetEmail(auth, this.resetEmail);
-          this.forgotPasswordDialog = false;
-          alert("Password reset email sent!");
+          // Check if the email exists in the Users collection
+          const usersRef = collection(firestore, 'Users');
+          const q = query(usersRef, where('email', '==', this.resetEmail));
+          const querySnapshot = await getDocs(q);
+
+          if (querySnapshot.empty) {
+            // No user found with the given email
+            alert("No account found with that email address.");
+          } else {
+            // User found, send password reset email
+            await sendPasswordResetEmail(auth, this.resetEmail);
+            this.forgotPasswordDialog = false;
+            alert("Password reset email sent!");
+          }
         } catch (error) {
           console.error("Error sending password reset email:", error);
           alert("Error sending password reset email: " + error.message);
@@ -219,6 +240,10 @@ export default {
     },
     goToSignUp() {
       this.$router.push('/sign/signup');
+    },
+    closeForgotPasswordDialog() {
+      this.resetEmail = '';  // Reset the email field
+      this.forgotPasswordDialog = false;  // Close the dialog
     },
   },
 };
@@ -233,7 +258,6 @@ export default {
 
 .sign-in-card {
   padding: 20px;
-  border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -247,6 +271,7 @@ export default {
   font-weight: bold;
   border-radius: 24px;
   height: 48px;
+  margin-top: -10px;
 }
 
 .outlined-btn1 {

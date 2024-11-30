@@ -5,8 +5,8 @@
         <v-card class="auth-card">
           <v-card-title class="justify-center auth-title">Create an Account</v-card-title>
 
-          <div class="text-center divider mt-2 mb-2">
-            -----sign up using-----
+          <div class="text-center" style="margin-top: -20px;">
+            ----- sign up using -----
           </div>
 
           <v-card-text>
@@ -19,8 +19,8 @@
             </v-row>
           </v-card-text>
 
-          <div class="text-center divider mt-2 mb-2">
-            -----or-----
+          <div class="text-center" style="margin-bottom: -10px;">
+            ----- or -----
           </div>
 
           <v-card-text>
@@ -57,10 +57,10 @@
               </v-text-field>
 
               <!-- Role Selection (optional) -->
-              <v-select v-model="selectedRole" :items="roleOptions" label="Are You a Business Owner?"></v-select>
+              <v-select v-model="selectedRole" :items="roleOptions" label="Are You a Business Owner?" style="margin-bottom: -15px;"></v-select>
 
               <v-btn @click="signUp" class="mt-4 primary-btn" block
-                style="background-color: #000; color: #fff; font-weight: bold;">
+                style="background-color: #000; color: #fff; font-weight: bold;" :loading="loading">
                 Sign Up
               </v-btn>
             </v-form>
@@ -89,14 +89,8 @@
 </template>
 
 <script>
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  sendEmailVerification,
-} from 'firebase/auth';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { getAuth, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendEmailVerification } from 'firebase/auth';
+import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
 
 export default {
   data() {
@@ -110,6 +104,7 @@ export default {
       selectedRole: 'customer', // Default role
       showPassword: false,
       showConfirmPassword: false,
+      loading: false, // Added loading state
       dialog: false,
       roleOptions: ['Business Owner'], // Only 'Business Owner' role in the list
       nameRules: [v => !!v || 'Name is required', v => v.length >= 2 || 'Name must be at least 2 characters'],
@@ -130,14 +125,12 @@ export default {
   methods: {
     async signUp() {
       if (this.$refs.form.validate() && this.password === this.confirmPassword) {
+        this.loading = true; // Start loading
         const auth = getAuth();
         const db = getFirestore();
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, this.email, this.password);
           const user = userCredential.user;
-
-          // Send email verification
-          await sendEmailVerification(user);
 
           // Update Firestore with default role 'customer' and other user details
           await setDoc(doc(db, 'Users', user.uid), {
@@ -149,13 +142,13 @@ export default {
             userID: user.uid  // Add the userID field with the auto-generated UID
           });
 
-          // Show success dialog
-          this.dialog = true;
+          // Redirect to home page immediately after sign-up
+          this.$router.push('/');
 
-          // Wait for the email verification before redirecting
-          await this.checkEmailVerification(user);
         } catch (error) {
-          
+          console.error("Sign-up error: ", error);
+        } finally {
+          this.loading = false; // Stop loading
         }
       }
     },
@@ -184,29 +177,36 @@ export default {
       try {
         // Attempt to sign in with Google
         const result = await signInWithPopup(auth, googleProvider);
+        const user = result.user;
 
-        // Check if the user was successfully authenticated
-        if (result.user) {
-          // Redirect to home page ('/')
-          this.$router.push('/');
-        }
-      } catch (error) {
-        // Retry on certain errors like network issues
-        if (error.code === 'auth/network-request-failed') {
-          try {
-            console.log("Network issue detected. Retrying...");
-            const retryResult = await signInWithPopup(auth, googleProvider);
-            if (retryResult.user) {
-              this.$router.push('/');
-            }
-          } catch (retryError) {
-            console.error("Retry failed:", retryError);
-            this.handleSignInError(retryError);
-          }
+        // Split the display name into first and last names
+        const [firstName = '', lastName = ''] = user.displayName ? user.displayName.split(' ') : ['', ''];
+
+        // Reference to Firestore database
+        const db = getFirestore();
+        const userDocRef = doc(db, 'Users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (!userDoc.exists()) {
+          // If the user document doesn't exist, create a new document
+          console.log('User document not found, creating new document...');
+          await setDoc(userDocRef, {
+            firstName: firstName,
+            lastName: lastName,
+            email: user.email,
+            userID: user.uid,  // Save the user ID
+            createdAt: new Date(), // Save creation date
+            role: 'customer', // Default role
+          });
         } else {
-          // Handle other sign-in errors
-          this.handleSignInError(error);
+          console.log('User document found, no need to create.');
         }
+
+        // Redirect to home page ('/')
+        this.$router.push('/');
+      } catch (error) {
+        // Handle sign-in errors
+        this.handleSignInError(error);
       }
     },
     handleSignInError(error) {
@@ -239,11 +239,10 @@ export default {
 <style scoped>
 .auth-card {
   background: #fff;
-  border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  padding: 16px; /* Reduced padding for a more compact design */
   max-width: 500px;
-  min-height: 60vh;
+  min-height: 50vh; /* Reduced height to 50vh for a smaller card */
   margin: 0 auto;
 }
 
@@ -269,6 +268,7 @@ export default {
 }
 
 .primary-btn {
+  margin-top: -20px;
   font-weight: bold;
   border-radius: 24px;
   height: 48px;
