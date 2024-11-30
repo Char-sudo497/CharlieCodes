@@ -48,7 +48,7 @@
       <!-- Cart Icon with Badge -->
       <v-btn icon to="/cart">
         <v-icon>mdi-cart-outline</v-icon>
-        <v-badge v-if="cartItemCount > 0" color="red" :content="cartItemCount" overlap>
+        <v-badge v-if="cartItemCount > 0" color="red" :content="cartItemCount" overlap style="margin-bottom: 20px;">
         </v-badge>
       </v-btn>
 

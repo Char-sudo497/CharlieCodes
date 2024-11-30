@@ -35,7 +35,12 @@
             </v-list-item>
             <v-list-item @click="navigateTo('/status')" class="sidebar-item">
               <v-icon left style="font-size: 28px;">mdi-truck-fast-outline</v-icon>
-              <v-list-item-title>My Orders</v-list-item-title>
+              <v-list-item-title
+                style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <span>My Orders</span>
+                <v-badge v-if="hasOrders" color="red" content="!" overlap
+                  style="margin-bottom: 15px; margin-right: 15px; margin-top: 10px;"></v-badge>
+              </v-list-item-title>
             </v-list-item>
             <v-list-item @click="navigateTo('/transaction')" class="sidebar-item">
               <v-icon left style="font-size: 28px;">mdi-currency-usd</v-icon>
@@ -297,7 +302,7 @@
 
 <script>
 import { auth, firestore } from '~/plugins/firebase'; // Ensure firebase is correctly imported
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, GoogleAuthProvider } from 'firebase/auth';
 import { doc, addDoc, getDoc, deleteDoc, collection, getDocs, query, where, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -313,6 +318,7 @@ export default {
         address: '',
         savedAddresses: [],
       },
+      hasOrders: false, // New property to track if user has orders
       showEditInfoDialog: false,  // New property to control Edit Info modal visibility
       showAddressDialog: false,
       showSavedAddressesDialog: false,
@@ -335,12 +341,17 @@ export default {
   async mounted() {
     onAuthStateChanged(auth, async (user) => {
       if (user) {
+        const credential = GoogleAuthProvider.credentialFromResult;
+        const token = credential.accessToken;
+        // this.user.email = user.email;
+        // const user = result.user;
+        console.log(user);
         this.user.email = user.email;
         const userRef = doc(firestore, 'Users', user.uid);
         const userDoc = await getDoc(userRef);
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          this.user.name = userData.firstName + ' ' + userData.lastName;
+          this.user.name = user.displayName || userData.firstName + ' ' + userData.lastName;
           this.user.phone = userData.phone;
           this.user.address = userData.address;
           this.user.profilePicture = userData.profilePicture || '';
@@ -352,6 +363,24 @@ export default {
     });
   },
   methods: {
+    async checkUserOrders() {
+      try {
+        const user = auth.currentUser;
+        if (user) {
+          const q = query(
+            collection(firestore, 'Orders'),
+            where('userId', '==', user.uid)
+          );
+          const querySnapshot = await getDocs(q);
+
+          // Update the hasOrders property based on the result
+          this.hasOrders = !querySnapshot.empty;
+        }
+      } catch (error) {
+        console.error('Error checking orders:', error);
+      }
+    },
+
     async verifyID() {
       if (!this.idImage || !this.userImage) {
         alert('Please upload both images.');
