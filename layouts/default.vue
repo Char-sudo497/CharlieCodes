@@ -258,15 +258,17 @@ export default {
       try {
         const userRef = collection(firestore, 'Users');
         const userQuery = query(userRef, where('userID', '==', userID));
-        const querySnapshot = await getDocs(userQuery);
 
-        if (!querySnapshot.empty) {
-          const userDoc = querySnapshot.docs[0];
-          this.userProfilePic = userDoc.data().profilePicture || ''; // Default to an empty string if the field is missing
-        } else {
-          console.warn("User document not found.");
-          this.userProfilePic = ''; // Default to no profile picture
-        }
+        // Attach a real-time listener
+        onSnapshot(userQuery, (querySnapshot) => {
+          if (!querySnapshot.empty) {
+            const userDoc = querySnapshot.docs[0];
+            this.userProfilePic = userDoc.data().profilePicture || ''; // Update profile picture
+          } else {
+            console.warn("User document not found.");
+            this.userProfilePic = ''; // Default to no profile picture
+          }
+        });
       } catch (error) {
         console.error("Error fetching user profile picture:", error);
         this.userProfilePic = ''; // Fallback in case of an error

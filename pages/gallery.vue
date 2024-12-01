@@ -135,56 +135,8 @@ export default {
     }
   },
   methods: {
-    async addToCart(product) {
-      try {
-        this.loading = true;  // Start loading animation
-        const auth = getAuth(); // Initialize Firebase auth
-        const user = auth.currentUser;
-
-        if (!user) {
-          this.loading = false;  // Stop loading animation
-          console.log("User is not logged in");
-          this.$router.push('/sign/signin'); // Redirect to sign-in page
-          return;
-        }
-
-        const cartRef = collection(firestore, 'Cart');
-
-        // Check if the product already exists in the cart
-        const querySnapshot = await getDocs(cartRef);
-        let productExists = false;
-        let cartDocId = null;
-
-        querySnapshot.forEach(doc => {
-          const cartItem = doc.data();
-          if (cartItem.ProductID === product.id && cartItem.userID === user.uid) {
-            productExists = true;
-            cartDocId = doc.id; // Store the document ID for updating the cart
-          }
-        });
-
-        if (productExists) {
-          // Update the existing cart item by increasing the quantity
-          const cartDocRef = doc(firestore, 'Cart', cartDocId);
-          await updateDoc(cartDocRef, {
-            Quantity: increment(1),
-          });
-          console.log(`${product.name} quantity updated in cart for user ${user.uid}!`);
-        } else {
-          // Add new product to cart
-          await addDoc(cartRef, {
-            ProductID: product.id,
-            Quantity: 1,
-            userID: user.uid, // Add the userID field
-          });
-          console.log(`${product.name} added to cart for user ${user.uid}!`);
-        }
-      } catch (error) {
-        console.error("Error adding to cart: ", error);
-      }
-      finally {
-        this.loading = false;  // Stop loading animation
-      }
+    async addToCart(productId) {
+      this.$router.push(`/product/${productId}`);
     },
     goToProduct(productId) {
       this.$router.push(`/product/${productId}`);
@@ -202,8 +154,8 @@ export default {
       }
 
       try {
-        await this.addToCart(product);
-        this.$router.push('/cart');
+        await this.addToCart(product); // Add to cart (assumes a valid addToCart method)
+        this.$router.push(`/product/${product.id}`); // Navigate to product page
       } catch (error) {
         console.error("Error during buy now:", error);
       } finally {

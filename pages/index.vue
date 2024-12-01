@@ -25,7 +25,7 @@
 
             <v-card-title class="d-flex justify-space-between align-center">
               <span>{{ product.name }}</span>
-              <v-btn icon class="cart-icon" @click.stop="addToCart(product)" :disabled="loading">
+              <v-btn icon class="cart-icon" @click.stop="goToProduct(product.id)">
                 <v-icon style="color: #FFA900;">mdi-cart-minus</v-icon>
               </v-btn>
             </v-card-title>
@@ -136,7 +136,7 @@ export default {
             Quantity: 1,
             userID: user.uid,
           });
-          console.log(`Added ${product.name} to cart for user ${user.uid}!`);
+          // console.log(`Added ${product.name} to cart for user ${user.uid}!`);
         }
       } catch (error) {
         console.error("Error adding to cart:", error);
@@ -151,26 +151,8 @@ export default {
     goToGallery() {
       this.$router.push(`/gallery`);
     },
-    async buyNow(product) {
-      this.loading = true;  // Start loading animation
-      const auth = getAuth();
-      const user = auth.currentUser;
-
-      if (!user) {
-        this.loading = false;  // Stop loading animation
-        // Redirect non-signed-in users to the sign-in page
-        this.$router.push('/sign/signin');
-        return;
-      }
-
-      try {
-        await this.addToCart(product);
-        this.$router.push('/cart');
-      } catch (error) {
-        console.error("Error during buy now:", error);
-      } finally {
-        this.loading = false;  // Stop loading animation
-      }
+    buyNow(product) {
+      this.goToProduct(product.id);
     },
   },
 };

@@ -96,11 +96,54 @@
               </v-list-item-content>
 
               <v-list-item-action>
-                <v-btn style="background-color: #ffa900; color: white;" @click="showEditInfoDialog = true">
+                <v-btn style="background-color: #ffa900; color: white;" @click="openEditInfoDialog">
                   Edit Info
+                </v-btn>
+
+              </v-list-item-action>
+            </v-list-item>
+
+            <v-divider class="my-4"></v-divider>
+
+            <v-list-item>
+              <v-list-item-content>
+                <!-- Email Verification Header -->
+                <v-list-item-title>
+                  <v-icon left color="#ffa900" style="font-size: 36px;">mdi-email-check-outline</v-icon>
+                  <span class="header-title">Email Verification</span>
+                </v-list-item-title>
+                <!-- Email Verification Subtitle -->
+                <v-list-item-subtitle>
+                  <span class="info-title">
+                    {{ emailVerified ? 'Your email is verified.' : 'Your email is not verified.' }}
+                  </span>
+                </v-list-item-subtitle>
+              </v-list-item-content>
+
+              <!-- Verify Email Button -->
+              <v-list-item-action>
+                <v-btn style="background-color: #ffa900; color: white;" @click="verifyEmail">
+                  Verify Email
                 </v-btn>
               </v-list-item-action>
             </v-list-item>
+
+            <v-dialog v-model="showVerifyDialog" persistent max-width="400px">
+              <v-card>
+                <v-card-title class="headline">Email Verification</v-card-title>
+                <v-card-text>
+                  <p v-if="emailVerified">Your email is already verified!</p>
+                  <p v-else>
+                    Please check your inbox for a verification email. If you haven't received it, click the button below
+                    to resend it.
+                  </p>
+                </v-card-text>
+                <v-card-actions>
+                  <v-btn color="green darken-1" text @click="showVerifyDialog = false">Close</v-btn>
+                  <v-btn color="blue darken-1" text @click="sendVerificationEmail">Send Verification</v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
 
             <!-- Edit Info Dialog -->
             <v-dialog v-model="showEditInfoDialog" max-width="500px">
@@ -114,13 +157,10 @@
                     <!-- Separate Fields for First Name and Last Name -->
                     <v-text-field label="First Name" v-model="user.firstName" prepend-icon="mdi-account"
                       required></v-text-field>
-
                     <v-text-field label="Last Name" v-model="user.lastName" prepend-icon="mdi-account"
                       required></v-text-field>
-
                     <v-text-field label="Email" v-model="user.email" prepend-icon="mdi-email" required
                       type="email"></v-text-field>
-
                     <v-text-field label="Phone" v-model="user.phone" prepend-icon="mdi-phone" required></v-text-field>
                   </v-form>
                 </v-card-text>
@@ -250,49 +290,6 @@
               </v-card>
             </v-dialog>
 
-            <!-- New Verify ID Section -->
-            <v-list-item>
-              <v-list-item-content>
-                <v-list-item-title>
-                  <v-icon left color="#ffa900" style="font-size: 36px;">mdi-check-circle-outline</v-icon>
-                  <span class="header-title">Verify Using ID</span>
-                </v-list-item-title>
-              </v-list-item-content>
-              <v-list-item-action>
-                <v-btn style="color: white; background-color: #ffa900;" @click="showVerifyDialog = true">
-                  Verify ID
-                </v-btn>
-              </v-list-item-action>
-            </v-list-item>
-
-            <!-- ID Verification Dialog -->
-            <v-dialog v-model="showVerifyDialog" max-width="500px">
-              <v-card>
-                <v-card-title>
-                  <span class="headline">Upload Your ID and Your Photo</span>
-                </v-card-title>
-
-                <v-card-text>
-                  <v-form ref="verifyForm" @submit.prevent="verifyID">
-                    <!-- ID Image Upload -->
-                    <v-file-input v-model="idImage" label="Upload ID Image" accept="image/*" required></v-file-input>
-
-                    <v-file-input v-model="userImage" label="Upload Your Photo with ID" accept="image/*"
-                      required></v-file-input>
-
-                  </v-form>
-                </v-card-text>
-
-                <v-card-actions>
-                  <v-spacer></v-spacer>
-                  <v-btn color="primary" @click="verifyID">Verify</v-btn>
-                  <v-btn @click="showVerifyDialog = false">Cancel</v-btn>
-                </v-card-actions>
-              </v-card>
-            </v-dialog>
-            <v-progress-circular v-if="loading" indeterminate color="primary" size="40"></v-progress-circular>
-
-
           </v-list>
         </v-card>
       </v-col>
@@ -302,8 +299,8 @@
 
 <script>
 import { auth, firestore } from '~/plugins/firebase'; // Ensure firebase is correctly imported
-import { onAuthStateChanged, GoogleAuthProvider } from 'firebase/auth';
-import { doc, addDoc, getDoc, deleteDoc, collection, getDocs, query, where, updateDoc } from 'firebase/firestore';
+import { onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
+import { doc, addDoc, getDoc, deleteDoc, collection, getDocs, query, where, updateDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default {
@@ -328,7 +325,8 @@ export default {
         street: '',
         zip: '',
       },
-      showVerifyDialog: false,  // Control visibility of the verify ID dialog
+      emailVerified: false,  // Track if the email is verified
+      showVerifyDialog: false,  // Control visibility of the verify email dialog
       idImage: null,            // To store the uploaded ID image
       userImage: null,          // To store the uploaded user photo with ID // Store the ID entered by the user
       addressTableHeaders: [
@@ -341,28 +339,102 @@ export default {
   async mounted() {
     onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const credential = GoogleAuthProvider.credentialFromResult;
-        const token = credential.accessToken;
-        // this.user.email = user.email;
-        // const user = result.user;
-        console.log(user);
+        // The user is authenticated
         this.user.email = user.email;
+        this.emailVerified = user.emailVerified;  // Update the emailVerified status
+
+        // Fetch the user data from Firestore
         const userRef = doc(firestore, 'Users', user.uid);
         const userDoc = await getDoc(userRef);
+
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          this.user.name = user.displayName || userData.firstName + ' ' + userData.lastName;
-          this.user.phone = userData.phone;
-          this.user.address = userData.address;
-          this.user.profilePicture = userData.profilePicture || '';
-
-          // Fetch saved addresses for the current user
-          this.loadSavedAddresses(user.uid);
+          this.user.name = user.displayName || `${userData.firstName} ${userData.lastName}`;
+          this.user.phone = userData.phone || '';
+          this.user.address = userData.address || '';
+          this.user.profilePicture = userData.profilePicture || user.photoURL;
+        } else {
+          console.log('No user document found in Firestore!');
         }
+
+        // Real-time listener for user document (optional if you want to track real-time changes)
+        onSnapshot(userRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const userData = snapshot.data();
+            this.user.name = user.displayName || `${userData.firstName} ${userData.lastName}`;
+            this.user.phone = userData.phone || '';
+            this.user.address = userData.address || '';
+            this.user.profilePicture = userData.profilePicture || user.photoURL;
+
+            // Fetch saved addresses for the current user
+            this.loadSavedAddresses(user.uid);
+          }
+        });
+      } else {
+        console.log('User not authenticated');
       }
     });
   },
   methods: {
+    // Method to trigger email verification
+    async verifyEmail() {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        // If the email is already verified, show the dialog with the confirmation
+        if (currentUser.emailVerified) {
+          this.emailVerified = true;
+          this.showVerifyDialog = true;
+        } else {
+          this.showVerifyDialog = true;
+        }
+      } else {
+        alert('No user is logged in.');
+      }
+    },
+
+    // Method to send a verification email
+    async sendVerificationEmail() {
+      const currentUser = auth.currentUser;
+      if (currentUser && !currentUser.emailVerified) {
+        try {
+          await sendEmailVerification(currentUser);
+          alert('Verification email sent. Please check your inbox.');
+          this.emailVerified = false;  // Ensure it's not marked as verified yet
+        } catch (error) {
+          console.error('Error sending verification email:', error);
+          alert('Failed to send verification email.');
+        }
+      }
+    },
+    async openEditInfoDialog() {
+      try {
+        const currentUser = auth.currentUser;
+
+        if (currentUser) {
+          // Fetch the user's document from Firestore
+          const userRef = doc(firestore, 'Users', currentUser.uid);
+          const userDoc = await getDoc(userRef);
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            // Populate the user object with fetched data
+            this.user.firstName = userData.firstName || '';
+            this.user.lastName = userData.lastName || '';
+            this.user.email = userData.email || '';
+            this.user.phone = userData.phone || '';
+          } else {
+            console.error('No user document found!');
+          }
+        } else {
+          console.error('No user is logged in.');
+        }
+
+        // Show the dialog
+        this.showEditInfoDialog = true;
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    },
     async checkUserOrders() {
       try {
         const user = auth.currentUser;
@@ -378,50 +450,6 @@ export default {
         }
       } catch (error) {
         console.error('Error checking orders:', error);
-      }
-    },
-
-    async verifyID() {
-      if (!this.idImage || !this.userImage) {
-        alert('Please upload both images.');
-        return;
-      }
-
-      try {
-        // Create form data to send to your backend
-        const formData = new FormData();
-        formData.append('id_image', this.idImage);
-        formData.append('user_image', this.userImage);
-
-        console.log('Submitting form data:', formData); // Log the form data for debugging
-
-        // Call backend API
-        const response = await this.verifyWithAPI(formData);
-
-        if (response.success) {
-          alert('ID verification successful!');
-        } else {
-          alert('Verification failed. Please check your images and try again.');
-        }
-
-        this.showVerifyDialog = false;
-      } catch (error) {
-        console.error('Error verifying ID:', error);
-        alert('An error occurred while verifying your ID. Please try again.');
-      }
-    },
-    async verifyWithAPI(formData) {
-      try {
-        const response = await this.$axios.post('/api/verify-id', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-
-        return response.data;
-      } catch (error) {
-        console.error('Error verifying ID with API:', error.response || error);
-        throw error; // Rethrow the error to be caught in the verifyID method
       }
     },
 
@@ -678,7 +706,7 @@ export default {
 }
 
 .info-title {
-  font-size: 16px;
+  font-size: 12px;
 }
 
 .infos-title {
