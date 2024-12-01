@@ -328,8 +328,13 @@ export default {
         if (user) {
           this.isUserLoggedIn = true;
           this.userID = user.uid;
+          if (user.providerData[0].providerId === 'google.com') {
+            this.userProfilePic = user.photoURL; // Use the Google profile picture
+          } else {
+            await this.fetchUserProfilePicture(user.uid); // Fetch profile picture from the Firestore Users collection
+          }
           this.getCartItems(); // Fetch cart items if user is logged in
-          await this.fetchUserProfilePicture(user.uid); // Fetch the user's profile picture
+
         } else {
           this.isUserLoggedIn = false;
           this.userID = '';

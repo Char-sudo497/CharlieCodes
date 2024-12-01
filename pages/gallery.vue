@@ -85,7 +85,7 @@
 
 <script>
 import { firestore } from '~/plugins/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, increment } from 'firebase/firestore'; // Import doc, updateDoc, and increment
+import { collection, getDocs, onSnapshot, addDoc, doc, updateDoc, increment } from 'firebase/firestore'; // Import doc, updateDoc, and increment
 import { getAuth } from 'firebase/auth'; // Import Firebase auth
 
 export default {
@@ -110,16 +110,41 @@ export default {
       }));
 
       // Fetch products from Firestore
-      const productsSnapshot = await getDocs(collection(firestore, 'Products'));
-      this.products = productsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data()['ProductName'],
-        price: doc.data().Price,
-        image: doc.data().Image,
-        rating: doc.data().Rating || 0,
-        categoryID: doc.data().CategoryID,
-        soldQuantity: doc.data().Sold || 0,
-      }));
+      const productsRef = collection(firestore, 'Products');
+  onSnapshot(productsRef, (snapshot) => {
+    this.products = snapshot.docs.map(doc => ({
+      id: doc.id,
+      name: doc.data().ProductName,
+      price: doc.data().Price,
+      image: doc.data().Image,
+      categoryID: doc.data().CategoryID,
+      soldQuantity: doc.data().Sold || 0,
+    }));
+    this.filterProducts();
+  });
+
+      // Fetch orders from Firestore
+      const ordersSnapshot = await getDocs(collection(firestore, 'Orders'));
+      const orders = ordersSnapshot.docs.map(doc => doc.data());
+
+      // Calculate total sold quantity for each product
+      this.products = this.products.map(product => {
+        const productId = product.id;
+
+        // Calculate total quantity sold for this product
+        const totalSold = orders.reduce((sum, order) => {
+          const productInCart = order.cartItems.find(item => item.productID === productId);
+          if (productInCart) {
+            return sum + productInCart.Quantity;
+          }
+          return sum;
+        }, 0);
+
+        // Update soldQuantity field
+        product.soldQuantity = totalSold;
+
+        return product;
+      });
 
       // Initialize filteredProducts
       this.filteredProducts = this.products;

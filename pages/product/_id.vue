@@ -47,7 +47,7 @@
             <!-- Sold Details -->
             <v-row>
               <v-col>
-                <v-card-subtitle class="text-subtitle-1">Sold: {{ soldQuantity }} units</v-card-subtitle>
+                <v-card-subtitle class="text-subtitle-1">Sold: {{ soldQuantity }} </v-card-subtitle>
               </v-col>
             </v-row>
 
@@ -211,7 +211,7 @@ export default {
         };
         this.fetchProductReviews(productId); // Fetch reviews for the product
         this.stockQuantity = this.product.Stock; // Assuming Stock is a field in your document
-        this.soldQuantity = this.product.Sold; // Assuming Sold is a field in your document
+        await this.fetchSoldQuantity(productId);
       } else {
         console.log('Product not found.'); // Handle case where product does not exist
       }
@@ -220,6 +220,30 @@ export default {
     }
   },
   methods: {
+    async fetchSoldQuantity(productId) {
+      try {
+        const ordersQuery = query(collection(firestore, 'Orders'));
+        const ordersSnapshot = await getDocs(ordersQuery);
+
+        let totalSold = 0;
+
+        ordersSnapshot.forEach((doc) => {
+          const orderData = doc.data();
+          if (orderData.cartItems) {
+            // Check if product exists in cartItems
+            orderData.cartItems.forEach((item) => {
+              if (item.productID === productId) {
+                totalSold += item.Quantity; // Add the quantity of the product
+              }
+            });
+          }
+        });
+
+        this.soldQuantity = totalSold; // Update the soldQuantity property
+      } catch (error) {
+        console.error('Error fetching sold quantity:', error);
+      }
+    },
     async fetchProductReviews(productId) {
       try {
         const ratingsQuery = query(
@@ -348,7 +372,7 @@ export default {
       this.$router.push('/rating'); // Navigate to the rating page
     },
     totalReviews() {
-      
+
     }
   }
 };

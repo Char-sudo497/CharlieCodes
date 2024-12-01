@@ -66,7 +66,7 @@
 
 <script>
 import { firestore } from '~/plugins/firebase';
-import { collection, getDocs, addDoc, query, where, updateDoc } from 'firebase/firestore'; // Import query and where
+import { collection, getDocs, addDoc, query, where, updateDoc, onSnapshot } from 'firebase/firestore'; // Import query and where
 import { getAuth } from 'firebase/auth'; // Import Firebase Authentication
 
 export default {
@@ -79,23 +79,47 @@ export default {
   },
   async created() {
     try {
-      const categoriesSnapshot = await getDocs(collection(firestore, 'Categories'));
-      this.itemList = categoriesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ProductType: doc.data().ProductType,
-      }));
+      // Real-time listener for Categories
+      onSnapshot(collection(firestore, 'Categories'), (categoriesSnapshot) => {
+        this.itemList = categoriesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ProductType: doc.data().ProductType,
+        }));
+      });
 
-      const productsSnapshot = await getDocs(collection(firestore, 'Products'));
-      this.products = productsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data()['ProductName'],
-        price: doc.data().Price,
-        image: doc.data().Image,
-        rating: doc.data().Rating || 0,
-        soldQuantity: doc.data().Sold || 0, // Fetch sold quantity from Firestore
-      }));
+      // Real-time listener for Products
+      onSnapshot(collection(firestore, 'Products'), async (productsSnapshot) => {
+        const productDocs = productsSnapshot.docs;
+
+        // Fetch orders in real-time
+        onSnapshot(collection(firestore, 'Orders'), (ordersSnapshot) => {
+          const orders = ordersSnapshot.docs.map(doc => doc.data());
+
+          // Map products and calculate sold quantities
+          this.products = productDocs.map(doc => {
+            const productId = doc.id;
+
+            // Calculate total sold quantity for this product
+            const totalSold = orders
+              .filter(order => order.cartItems.some(item => item.productID === productId))
+              .reduce((sum, order) => {
+                const productInOrder = order.cartItems.find(item => item.productID === productId);
+                return sum + (productInOrder ? productInOrder.Quantity : 0);
+              }, 0);
+
+            return {
+              id: productId,
+              name: doc.data().ProductName,
+              price: doc.data().Price,
+              image: doc.data().Image,
+              soldQuantity: totalSold,
+            };
+          });
+        });
+      });
+
     } catch (error) {
-      console.error("Error fetching data: ", error);
+      console.error("Error fetching data:", error);
     }
   },
   methods: {
@@ -103,46 +127,39 @@ export default {
       this.$router.push({ path: '/gallery', query: { category: item.ProductType } });
     },
     async addToCart(product) {
-      this.loading = true;  // Start loading animation
+      this.loading = true;
       const auth = getAuth();
       const user = auth.currentUser;
 
       if (!user) {
-        this.loading = false;  // Stop loading animation
-        // Redirect non-signed-in users to the sign-in page
+        this.loading = false;
         this.$router.push('/sign/signin');
         return;
       }
 
       try {
         const cartRef = collection(firestore, 'Cart');
-
-        // Check if the product already exists in the cart for the user
         const cartQuery = query(cartRef, where("userID", "==", user.uid), where("ProductID", "==", product.id));
         const cartSnapshot = await getDocs(cartQuery);
 
         if (!cartSnapshot.empty) {
-          // Update quantity if the product is already in the cart
           const cartItemDoc = cartSnapshot.docs[0];
           const currentQuantity = cartItemDoc.data().Quantity;
           await updateDoc(cartItemDoc.ref, {
             Quantity: currentQuantity + 1,
           });
-          console.log(`Updated quantity of ${product.name} in cart for user ${user.uid}!`);
         } else {
-          // Add new product to cart
           await addDoc(cartRef, {
             ProductID: product.id,
             Quantity: 1,
             userID: user.uid,
           });
-          // console.log(`Added ${product.name} to cart for user ${user.uid}!`);
         }
       } catch (error) {
         console.error("Error adding to cart:", error);
       }
       finally {
-        this.loading = false;  // Stop loading animation
+        this.loading = false;
       }
     },
     goToProduct(productId) {
