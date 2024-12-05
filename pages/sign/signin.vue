@@ -128,36 +128,15 @@ export default {
           const userCredential = await signInWithEmailAndPassword(auth, this.email, this.password);
           const userId = userCredential.user.uid;
 
-          // Fetch the user's role from Firestore
+          // Fetch the user's role from Firestore (optional, if you need the role for other purposes)
           const userDocRef = doc(firestore, 'Users', userId);
           const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const userRole = userDoc.data().role;
 
-            // Redirect based on the user's role
-            if (['admin', 'cashier', 'owner'].includes(userRole)) {
-              this.$router.push('/admin/admindashboard');
-            } else {
-              // Default redirection for other roles
-              const cartItems = JSON.parse(localStorage.getItem('cart')) || [];
-              if (cartItems.length > 0) {
-                // Transfer items from localStorage to Firestore Cart collection
-                const cartRef = collection(firestore, 'Cart');
-                for (const item of cartItems) {
-                  await addDoc(cartRef, {
-                    ProductID: item.ProductID,
-                    Quantity: item.Quantity,
-                    userID: userId,
-                  });
-                }
-                localStorage.removeItem('cart');
-                this.$router.push('/checkout');
-              } else {
-                this.$router.push('/'); // Redirect to home if cart is empty
-              }
-            }
+          if (userDoc.exists()) {
+            // Redirect all authenticated users to the home page
+            this.$router.push('/');
           } else {
-            console.error("User role not found in Firestore");
+            console.error("User not found in Firestore");
           }
         } catch (error) {
           console.error("Error signing in:", error);
@@ -167,6 +146,7 @@ export default {
         }
       }
     },
+
     async signInWithGoogle() {
       try {
         const result = await signInWithPopup(auth, googleProvider);
@@ -177,28 +157,8 @@ export default {
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
-          const userRole = userDoc.data().role;
-
-          // Redirect based on the user's role
-          if (['admin', 'cashier', 'owner'].includes(userRole)) {
-            this.$router.push('/admin/admindashboard');
-          } else {
-            const cartItems = JSON.parse(localStorage.getItem('cart')) || [];
-            if (cartItems.length > 0) {
-              const cartRef = collection(firestore, 'Cart');
-              for (const item of cartItems) {
-                await addDoc(cartRef, {
-                  ProductID: item.ProductID,
-                  Quantity: item.Quantity,
-                  userID: userId,
-                });
-              }
-              localStorage.removeItem('cart');
-              this.$router.push('/checkout');
-            } else {
-              this.$router.push('/');
-            }
-          }
+          // Redirect all authenticated users to the home page
+          this.$router.push('/');
         } else {
           // Create a new user document for Google sign-in
           const userName = user.displayName || '';

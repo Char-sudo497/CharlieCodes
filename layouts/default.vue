@@ -45,8 +45,7 @@
 
       <v-spacer></v-spacer>
 
-      <!-- Cart Icon with Badge -->
-      <v-btn icon to="/cart">
+      <v-btn icon @click="handleCartClick">
         <v-icon>mdi-cart-outline</v-icon>
         <v-badge v-if="cartItemCount > 0" color="red" :content="cartItemCount" overlap style="margin-bottom: 20px;">
         </v-badge>
@@ -121,6 +120,20 @@
         </v-list-item>
       </v-list>
     </v-navigation-drawer>
+
+    <v-dialog v-model="loginPromptDialog" max-width="500">
+      <v-card>
+        <v-card-title class="headline">Login Required</v-card-title>
+        <v-card-text>
+          To access your cart, please log in first.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn style="background-color: #FFA900; color: white" @click="proceedToLogin">Log In</v-btn>
+          <v-btn text @click="loginPromptDialog = false">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Fullscreen Carousel -->
     <v-carousel v-if="showCarousel" height="50vh" hide-delimiter-background :cycle="true">
@@ -254,6 +267,13 @@ export default {
     },
   },
   methods: {
+    handleCartClick() {
+      if (!this.isUserLoggedIn) {
+        this.loginPromptDialog = true; // Show the login dialog
+      } else {
+        this.$router.push('/cart'); // If logged in, redirect to the cart
+      }
+    },
     async fetchUserProfilePicture(userID) {
       try {
         const userRef = collection(firestore, 'Users');
@@ -291,7 +311,7 @@ export default {
       }
     },
     proceedToLogin() {
-      this.loginPromptDialog = false; // Close the dialog
+      this.loginPromptDialog = false; // Close the login prompt dialog
       this.$router.push('/sign/signin'); // Redirect to the sign-in page
     },
     async getCategories() {

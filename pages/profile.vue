@@ -62,7 +62,7 @@
               <v-icon left style="font-size: 28px;">mdi-lock-outline</v-icon>
               <v-list-item-title>Change Password</v-list-item-title>
             </v-list-item>
-            <v-list-item @click="signOut" class="sidebar-item">
+            <v-list-item @click="showLogoutDialog = true" class="sidebar-item">
               <v-icon left style="font-size: 28px;">mdi-logout</v-icon>
               <v-list-item-title>Log Out</v-list-item-title>
             </v-list-item>
@@ -211,6 +211,21 @@
 
             <v-divider class="my-4"></v-divider>
 
+            <!-- Confirmation Dialog -->
+            <v-dialog v-model="showLogoutDialog" max-width="400">
+              <v-card>
+                <v-card-title class="headline">Confirm Logout</v-card-title>
+                <v-card-text>
+                  Are you sure you want to log out?
+                </v-card-text>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn color="primary" text @click="confirmLogout">Yes</v-btn>
+                  <v-btn color="secondary" text @click="showLogoutDialog = false">Cancel</v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+
             <!-- Manage Address Dialog -->
             <v-dialog v-model="showAddressDialog" max-width="500">
               <v-card>
@@ -333,6 +348,7 @@ export default {
         { text: 'Address', value: 'address' },
         { text: 'Actions', value: 'actions', sortable: false, align: 'center' },
       ],
+      showLogoutDialog: false,
       loading: false,           // Add the loading property here to make it reactive
     };
   },
@@ -376,6 +392,10 @@ export default {
     });
   },
   methods: {
+    confirmLogout() {
+      this.showLogoutDialog = false; // Close the dialog
+      this.signOut(); // Proceed with the logout
+    },
     // Method to trigger email verification
     async verifyEmail() {
       const currentUser = auth.currentUser;
@@ -579,7 +599,10 @@ export default {
     },
     signOut() {
       auth.signOut().then(() => {
-        this.$router.push('/sign/signin');
+        this.$router.push('/');
+      }).catch((error) => {
+        console.error('Error logging out:', error);
+        alert('Failed to log out. Please try again.');
       });
     },
     async editAddress(index) {
