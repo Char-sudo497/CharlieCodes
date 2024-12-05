@@ -134,29 +134,27 @@ export default {
           if (userDoc.exists()) {
             const userRole = userDoc.data().role;
 
-            // Ensure the userID field is added to the user document
-            await setDoc(userDocRef, { userID: userId }, { merge: true });
-
-            // Check if there are any cart items in localStorage
-            const cartItems = JSON.parse(localStorage.getItem('cart')) || [];
-            if (cartItems.length > 0) {
-              // Transfer items from localStorage to Firestore Cart collection
-              const cartRef = collection(firestore, 'Cart');
-              for (const item of cartItems) {
-                await addDoc(cartRef, {
-                  ProductID: item.ProductID,
-                  Quantity: item.Quantity,
-                  userID: userId,
-                });
-              }
-              // Clear localStorage after transferring to Firestore
-              localStorage.removeItem('cart');
-
-              // Redirect to the checkout page
-              this.$router.push('/checkout');
+            // Redirect based on the user's role
+            if (['admin', 'cashier', 'owner'].includes(userRole)) {
+              this.$router.push('/admin/admindashboard');
             } else {
-              // Redirect to the home page if cart is empty
-              this.$router.push('/');
+              // Default redirection for other roles
+              const cartItems = JSON.parse(localStorage.getItem('cart')) || [];
+              if (cartItems.length > 0) {
+                // Transfer items from localStorage to Firestore Cart collection
+                const cartRef = collection(firestore, 'Cart');
+                for (const item of cartItems) {
+                  await addDoc(cartRef, {
+                    ProductID: item.ProductID,
+                    Quantity: item.Quantity,
+                    userID: userId,
+                  });
+                }
+                localStorage.removeItem('cart');
+                this.$router.push('/checkout');
+              } else {
+                this.$router.push('/'); // Redirect to home if cart is empty
+              }
             }
           } else {
             console.error("User role not found in Firestore");
@@ -172,41 +170,47 @@ export default {
     async signInWithGoogle() {
       try {
         const result = await signInWithPopup(auth, googleProvider);
-        const user = result.user; // This is the correct place to get user information
+        const user = result.user;
         const userId = result.user.uid;
-        const userName = result.user.displayName || '';
-        const [firstName, lastName] = userName.split(' ');  // Split the name into first and last name
 
-        // Fetch the user's Firestore document
         const userDocRef = doc(firestore, 'Users', userId);
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
-          const cartItems = JSON.parse(localStorage.getItem('cart')) || [];
-          if (cartItems.length > 0) {
-            const cartRef = collection(firestore, 'Cart');
-            for (const item of cartItems) {
-              await addDoc(cartRef, {
-                ProductID: item.ProductID,
-                Quantity: item.Quantity,
-                userID: userId,
-              });
-            }
-            localStorage.removeItem('cart');
-            this.$router.push('/checkout');
+          const userRole = userDoc.data().role;
+
+          // Redirect based on the user's role
+          if (['admin', 'cashier', 'owner'].includes(userRole)) {
+            this.$router.push('/admin/admindashboard');
           } else {
-            this.$router.push('/'); // Redirect to home if cart is empty
+            const cartItems = JSON.parse(localStorage.getItem('cart')) || [];
+            if (cartItems.length > 0) {
+              const cartRef = collection(firestore, 'Cart');
+              for (const item of cartItems) {
+                await addDoc(cartRef, {
+                  ProductID: item.ProductID,
+                  Quantity: item.Quantity,
+                  userID: userId,
+                });
+              }
+              localStorage.removeItem('cart');
+              this.$router.push('/checkout');
+            } else {
+              this.$router.push('/');
+            }
           }
         } else {
-          // Create a new user document in Firestore
+          // Create a new user document for Google sign-in
+          const userName = user.displayName || '';
+          const [firstName, lastName] = userName.split(' ');
           await setDoc(userDocRef, {
             userID: userId,
-            firstName: firstName, // Store the first name
-            lastName: lastName,   // Store the last name
-            email: user.email,    // Store the email
-            role: 'customer'      // Default role is 'customer'
+            firstName: firstName || '',
+            lastName: lastName || '',
+            email: user.email,
+            role: 'customer', // Default role for new users
           });
-          this.$router.push('/'); // Redirect to home after creating user
+          this.$router.push('/');
         }
       } catch (error) {
         console.error("Google Sign-In Error:", error);
